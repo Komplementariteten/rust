@@ -1,9 +1,13 @@
-use std::collections::HashMap;
-use std::error;
+extern crate project_example;
+
+use project_example::sub::file1::*;
 
 fn main() {
-    print()
+    println!("main");
+    hello();
 }
+
+/*
 type Error = Box<dyn error::Error>;
 fn print() {
     let n = '🤬';
@@ -20,3 +24,4 @@ fn print() {
     t1 &= rang.contains(&t.2);
     println!("result => {}", t1);
 }
+*/
