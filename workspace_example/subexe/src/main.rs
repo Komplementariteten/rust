@@ -1,6 +1,10 @@
-use create::moda::*;
+extern crate sublib;
+
+use sublib::*;
+use sublib::moda::*;
 
 fn main() {
     println!("Hello, world!");
-    let r1 = lib_add(1, 2);
+    sublib::hello();
+    moda::moda_run();
 }

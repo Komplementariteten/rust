@@ -1,0 +1,101 @@
+{
+    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'subexe'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=subexe",
+                    "--package=subexe"
+                ],
+                "filter": {
+                    "name": "subexe",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'subexe'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=subexe",
+                    "--package=subexe"
+                ],
+                "filter": {
+                    "name": "subexe",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'sublib'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=sublib"
+                ],
+                "filter": {
+                    "name": "sublib",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'workspace_example'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=workspace_example",
+                    "--package=workspace_example"
+                ],
+                "filter": {
+                    "name": "workspace_example",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'workspace_example'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=workspace_example",
+                    "--package=workspace_example"
+                ],
+                "filter": {
+                    "name": "workspace_example",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
