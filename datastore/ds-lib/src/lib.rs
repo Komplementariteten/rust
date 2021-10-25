@@ -1,3 +1,4 @@
+pub mod lazy-document-tree;
 #[cfg(test)]
 mod tests {
     #[test]
