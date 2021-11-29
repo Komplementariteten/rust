@@ -1,18 +1,21 @@
+extern crate serde;
+extern crate serde_derive;
+use serde_derive::{Serialize, Deserialize};
 use std::collections::hash_map::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Store {
+    pub index: HashMap<String, u64>,
+    pub data: Vec<u8>
+}
+
 pub struct Datastore {
     base_dir: PathBuf,
     known_stores: Vec<String>
 }
-
-struct Store {
-    index: HashMap<String, u64>,
-    data: Vec<u8>
-}
-
 impl Datastore {
     pub fn new(path: PathBuf) -> Datastore {
         Datastore{
