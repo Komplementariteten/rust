@@ -18,6 +18,23 @@ mod tests {
     }
 
     #[test]
+    fn tet_store_pop_removes_correctly() {
+        let mut s = Store::new();
+        let mut indexies = Vec::new();
+        for i in 0..1e9 {
+            let index = s.add(vec![i, i, i]);
+            indexies.push(index);
+        }
+        assert!(s.len() == (1e9 + 1));
+        for item in indexies.iter() {
+            if item % 2 == 0 {
+                s.pop(item);
+            }
+        }
+        assert!(s.len() == (1e9 / 2));
+    }
+
+    #[test]
     fn test_store_save_and_load() {
         let mut s = Store::new();
         s.add(vec![1, 2]);

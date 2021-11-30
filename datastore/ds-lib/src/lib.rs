@@ -6,15 +6,16 @@ use crate::StoreSerializationError::{DeserializeError, ReaderError, SerializeErr
 use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::hash_map::HashMap;
+use std::fmt::format;
 use std::path::Path;
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Store {
-    index: HashMap<String, usize>,
-    meta: Vec<DataOption>,
-    data: Vec<Vec<u8>>,
-    know_index: Vec<usize>,
+    index: HashMap<String, u64>,
+    meta: HashMap<String, DataOption>,
+    data: HashMap<String, Vec<u8>>,
+    know_index: Vec<u64>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -31,17 +32,40 @@ pub enum StoreSerializationError {
     ReaderError,
 }
 
+pub enum DataError {
+    PopError,
+    NotFound,
+}
+
 impl Store {
     pub fn new() -> Store {
         Store {
             index: HashMap::new(),
-            meta: Vec::new(),
-            data: Vec::new(),
+            meta: HashMap::new(),
+            data: HashMap::new(),
             know_index: Vec::new(),
         }
     }
-    fn new_index(&self) -> usize {
-        match self.know_index.last() {
+
+    pub fn pop(&mut self, index: &u64) -> Result<Vec<u8>, DataError> {
+        let index = self.know_index.iter().position(|n| n == index);
+        if let Some(found_index) = index {
+            let removed = self.know_index.remove(found_index);
+            self.meta.remove(format!("_id={}", removed).as_str());
+            let removed_data = self
+                .data
+                .remove(format!("_id={}", removed).as_str())
+                .unwrap();
+            self.index.remove(format!("_id={}", removed).as_str());
+            let (keep, _) = self.index.iter().partition(|&tuple| tuple.1 == removed);
+            self.index = keep;
+            Ok(removed_data);
+        }
+        Err(DataError::NotFound)
+    }
+
+    fn new_index(&self) -> u64 {
+        match self.know_index.max() {
             Some(last) => return last + 1,
             None => 1,
         }
@@ -75,11 +99,12 @@ impl Store {
         }
     }
 
-    pub fn add(&mut self, data: Vec<u8>) -> usize {
+    pub fn add(&mut self, data: Vec<u8>) -> u64 {
         let inx = self.new_index();
-        self.index.insert("id=".to_string(), inx);
-        self.data.push(data);
-        self.meta.push(DataOption {});
+        let inx_str = format!("_id={}", inx);
+        self.index.insert(inx_str.clone(), inx);
+        self.data.insert(inx_str.clone(), data);
+        self.meta.insert(inx_str, DataOption {});
         self.know_index.push(inx);
         inx
     }
