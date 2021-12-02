@@ -2,9 +2,9 @@ extern crate flexbuffers;
 extern crate serde;
 extern crate serde_derive;
 
-use crate::StoreSerializationError::{DeserializeError, ReaderError, SerializeError};
 use serde::{Deserialize, Serialize};
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::*;
+use std::borrow::Borrow;
 use std::collections::hash_map::HashMap;
 use std::fmt::format;
 use std::path::Path;
@@ -34,7 +34,16 @@ pub enum StoreSerializationError {
 
 pub enum DataError {
     PopError,
+    IndexNotFound,
+    DeserializationError,
     NotFound,
+    SerializationError,
+}
+
+macro_rules! format_inx {
+    ($t: expr) => {
+        format!("{}", stringify!(t));
+    };
 }
 
 impl Store {
@@ -51,21 +60,28 @@ impl Store {
         let index = self.know_index.iter().position(|n| n == index);
         if let Some(found_index) = index {
             let removed = self.know_index.remove(found_index);
-            self.meta.remove(format!("_id={}", removed).as_str());
-            let removed_data = self
-                .data
-                .remove(format!("_id={}", removed).as_str())
-                .unwrap();
+            self.meta.remove(format_inx!(removed).as_str());
+            let removed_data = self.data.remove(format_inx!(removed).as_str()).unwrap();
             self.index.remove(format!("_id={}", removed).as_str());
-            let (keep, _) = self.index.iter().partition(|&tuple| tuple.1 == removed);
-            self.index = keep;
-            Ok(removed_data);
+            let mut keys_to_remove = Vec::new();
+            for (key, &value) in self.index.iter() {
+                if value == removed {
+                    keys_to_remove.push(key.clone());
+                }
+            }
+
+            for key in keys_to_remove.iter() {
+                self.index.remove(key);
+            }
+
+            return Ok(removed_data);
         }
         Err(DataError::NotFound)
     }
 
-    fn new_index(&self) -> u64 {
-        match self.know_index.max() {
+    fn new_index(&mut self) -> u64 {
+        self.know_index.sort();
+        match self.know_index.last() {
             Some(last) => return last + 1,
             None => 1,
         }
@@ -78,15 +94,47 @@ impl Store {
         }
     }
 
+    pub fn add<T: Serialize>(&mut self, item: T) -> Result<String, DataError> {
+        let mut s = flexbuffers::FlexbufferSerializer::new();
+        let data = match item.serialize(&mut s) {
+            Ok(_) => s.take_buffer(),
+            Err(_) => return Err(DataError::SerializationError),
+        };
+
+        let inx = self.add_raw(data);
+        return Ok(format_inx!(inx));
+    }
+
+    pub fn get<'a, T: Deserialize<'a>>(&self, index: &str) -> Result<T, DataError> {
+        if !self.data.contains_key(index) {
+            return Err(DataError::IndexNotFound);
+        }
+        let data = match self.data.get(index) {
+            Some(d) => d.clone(),
+            None => return Err(DataError::NotFound),
+        };
+        let reader = match flexbuffers::Reader::get_root(data.as_slice()) {
+            Ok(r) => r,
+            Err(_err) => return Err(DataError::DeserializationError),
+        };
+
+        let item = match T::deserialize(reader) {
+            Ok(i) => i,
+            Err(_err) => return Err(DataError::DeserializationError),
+        };
+
+        Ok(item)
+    }
+
     pub fn load(data: Vec<u8>) -> Result<Store, StoreSerializationError> {
         let reader = match flexbuffers::Reader::get_root(data.as_slice()) {
             Ok(reader) => reader,
-            Err(_err) => return Err(ReaderError),
+            Err(_err) => return Err(StoreSerializationError::ReaderError),
         };
 
         let store = match Store::deserialize(reader) {
             Ok(s) => s,
-            Err(_err) => return Err(DeserializeError),
+            Err(_err) => return Err(StoreSerializationError::DeserializeError),
         };
         Ok(store)
     }
@@ -95,11 +143,11 @@ impl Store {
         let mut s = flexbuffers::FlexbufferSerializer::new();
         match self.serialize(&mut s) {
             Ok(_) => Ok(s.take_buffer()),
-            Err(_) => Err(SerializeError),
+            Err(_) => Err(StoreSerializationError::SerializeError),
         }
     }
 
-    pub fn add(&mut self, data: Vec<u8>) -> u64 {
+    pub fn add_raw(&mut self, data: Vec<u8>) -> u64 {
         let inx = self.new_index();
         let inx_str = format!("_id={}", inx);
         self.index.insert(inx_str.clone(), inx);

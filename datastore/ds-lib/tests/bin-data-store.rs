@@ -13,32 +13,33 @@ mod tests {
         let mut s = Store::new();
         assert!(s.len() == 0);
         let data: Vec<u8> = vec![1, 2];
-        s.add(data);
+        s.add_raw(data);
         assert!(s.len() == 1);
     }
 
     #[test]
     fn tet_store_pop_removes_correctly() {
         let mut s = Store::new();
+        let numer_of_items: u64 = 10000;
         let mut indexies = Vec::new();
-        for i in 0..1e9 {
-            let index = s.add(vec![i, i, i]);
+        for i in 0..numer_of_items {
+            let index = s.add_raw(vec![1, 2, 3]);
             indexies.push(index);
         }
-        assert!(s.len() == (1e9 + 1));
+        assert!((s.len() as u64) == numer_of_items);
         for item in indexies.iter() {
             if item % 2 == 0 {
                 s.pop(item);
             }
         }
-        assert!(s.len() == (1e9 / 2));
+        assert!((s.len() as u64) == (numer_of_items / 2));
     }
 
     #[test]
     fn test_store_save_and_load() {
         let mut s = Store::new();
-        s.add(vec![1, 2]);
-        s.add(vec![1, 2]);
+        s.add_raw(vec![1, 2]);
+        s.add_raw(vec![1, 2]);
         let s_res = s.as_slice();
         assert!(s_res.is_ok());
         let s_vec = s_res.unwrap_or(Vec::new());
