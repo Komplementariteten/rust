@@ -5,7 +5,7 @@ extern crate test;
 
 #[cfg(test)]
 mod tests {
-    use dslib::{DataOption, Datastore, Schema};
+    use dslib::{DataOption, Datastore, Schema, StoreableWithSchema};
     use serde_derive::{Deserialize, Serialize};
     use std::fs::remove_dir_all;
     use std::path::Path;
@@ -37,6 +37,8 @@ mod tests {
         }
     }
 
+    impl StoreableWithSchema for TestStruct {}
+
     #[bench]
     fn bench_store_many(b: &mut Bencher) {
         let p = Path::new("./store");
@@ -48,7 +50,7 @@ mod tests {
                 id: -55,
                 name: "test".to_string(),
             };
-            let _add_result = ds.add(test_data);
+            let _add_result = ds.insert_and_save(test_data);
             // }
         });
         ds.close();
@@ -66,7 +68,7 @@ mod tests {
             name: "test".to_string(),
         };
 
-        let add_result = ds.add(test_data);
+        let add_result = ds.insert_and_save(test_data);
         assert!(add_result.is_ok());
 
         let inx = add_result.unwrap();

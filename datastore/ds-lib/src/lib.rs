@@ -4,13 +4,14 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-use crate::store::Store;
-use crate::transaction::{Transaction, TransactionError};
+use crate::batch::Batch;
+use crate::store::{DataError, Store};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::hash_map::HashMap;
 use std::fs::{create_dir_all, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 /*
@@ -36,8 +37,8 @@ macro_rules! format_inx {
     };
 }
 
+pub mod batch;
 pub mod store;
-pub mod transaction;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DataOption {}
@@ -48,6 +49,8 @@ pub trait Schema {
     fn name(&self) -> &str;
 }
 
+pub trait StoreableWithSchema: Serialize + Schema + DeserializeOwned {}
+
 const STORE_FILE_EXTENSION: &str = "sdbf";
 
 #[derive(Debug)]
@@ -55,7 +58,6 @@ pub struct Datastore {
     is_dirty: bool,
     base_dir: PathBuf,
     stores: HashMap<String, Store>,
-    transactions: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -68,6 +70,7 @@ pub enum StoreSerializationError {
 #[derive(Debug)]
 pub enum DataStoreError {
     StoreNotFound,
+    DataError,
 }
 
 impl Datastore {
@@ -76,31 +79,13 @@ impl Datastore {
             create_dir_all(&path).expect("Can't create Path");
         }
         Datastore {
-            transactions: Vec::new(),
             is_dirty: false,
             base_dir: path,
             stores: HashMap::new(),
         }
     }
-    pub fn start(&mut self, name: &str) -> Option<Transaction> {
-        let store = match self.stores.get_mut(name) {
-            None => return None,
-            Some(s) => s,
-        };
-        Some(Transaction::new(store, name))
-    }
-    pub fn commit(&mut self, tx: Transaction) -> Option<u64> {
-        if tx.changes == 0 {
-            None
-        }
-        self.save(tx.store_name.as_str());
-        Some(tx.changes)
-    }
-    pub fn get<T: DeserializeOwned + Schema>(
-        &mut self,
-        store_name: &str,
-        index: &str,
-    ) -> Option<T> {
+
+    pub fn get<T: StoreableWithSchema>(&mut self, store_name: &str, index: &str) -> Option<T> {
         if self.stores.contains_key(store_name) {
             self.stores[store_name].get(index)
         } else {
@@ -110,6 +95,16 @@ impl Datastore {
             };
             item
         }
+    }
+    fn remove(&mut self, store_name: &str, index: String) -> Result<usize, DataStoreError> {
+        if let Some(store) = self.stores.get_mut(store_name) {
+            let rs = match store.remove(index) {
+                Ok(s) => s.len(),
+                Err(e) => return Err(DataStoreError::DataError),
+            };
+            return Ok(rs);
+        }
+        Err(DataStoreError::StoreNotFound)
     }
     fn open(&mut self, name: &str) -> Option<&Store> {
         let mut file_name = self.base_dir.join(name);
@@ -121,13 +116,10 @@ impl Datastore {
             .open(file_name.as_path())
             .expect("Unable to open file");
         let mut r = BufReader::new(f);
-        let data = r.fill_buf();
+        let mut data: Vec<u8> = Vec::new();
+        r.read_to_end(&mut data);
 
-        if data.is_err() {
-            return None;
-        }
-
-        let reader = match flexbuffers::Reader::get_root(data.unwrap()) {
+        let reader = match flexbuffers::Reader::get_root(data.as_slice()) {
             Ok(reader) => reader,
             Err(_err) => return None,
         };
@@ -144,7 +136,34 @@ impl Datastore {
         self.stores = HashMap::new()
     }
 
-    pub fn add<T: Serialize + Schema>(&mut self, item: T) -> Result<String, DataStoreError> {
+    pub fn execute<T: StoreableWithSchema>(
+        &mut self,
+        store_name: &str,
+        mut b: Batch<T>,
+    ) -> Vec<String> {
+        let mut indexes = Vec::new();
+        if let Some(store) = self.stores.get_mut(store_name) {
+            for item in b.clear() {
+                let inx = store.add_with_index(&item, item.indexes(), item.desc());
+                indexes.push(inx);
+            }
+            self.save(store_name)
+        } else {
+            let mut store = Store::new();
+            for item in b.clear() {
+                let inx = store.add_with_index(&item, item.indexes(), item.desc());
+                indexes.push(inx);
+            }
+            self.stores.insert(store_name.to_string(), store);
+            self.save(store_name);
+        }
+        indexes
+    }
+
+    pub fn insert_and_save<T: StoreableWithSchema>(
+        &mut self,
+        item: T,
+    ) -> Result<String, DataStoreError> {
         let name = item.name().to_string();
         if let Some(store) = self.stores.get_mut(&name) {
             let inx = store.add_with_index(&item, item.indexes(), item.desc());
@@ -160,7 +179,7 @@ impl Datastore {
     }
     pub fn save_all(&mut self) -> Option<()> {
         if !self.is_dirty {
-            None
+            return None;
         }
         for kvp in &self.stores {
             self.save(kvp.0.as_str())

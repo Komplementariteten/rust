@@ -29,6 +29,18 @@ impl Store {
         }
     }
 
+    pub fn remove(&mut self, index: String) -> Result<Vec<u8>, DataError> {
+        let id = match self.index_to_id(&index) {
+            Some(id) => id,
+            None => return Err(DataError::IndexNotFound),
+        };
+        let d = match self.pop(&id) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+        Ok(d)
+    }
+
     pub fn pop(&mut self, index: &u64) -> Result<Vec<u8>, DataError> {
         let index = self.know_index.iter().position(|n| *n == *index);
         if let Some(found_index) = index {
@@ -76,6 +88,14 @@ impl Store {
             true => 0,
         }
     }
+    fn index_to_id(&self, index: &str) -> Option<u64> {
+        let inx_str = index[5..].to_string().clone();
+        let id = match inx_str.parse::<u64>() {
+            Ok(id) => id,
+            Err(_) => return None,
+        };
+        Some(id)
+    }
 
     pub fn add_with_index<T: Serialize>(
         &mut self,
@@ -84,8 +104,7 @@ impl Store {
         options: Option<DataOption>,
     ) -> String {
         let inx = self.add_single(item);
-        let inx_str = inx[5..].to_string().clone();
-        let id = inx_str.parse::<u64>().unwrap();
+        let id = self.index_to_id(&inx).unwrap();
         for index in indexes.iter() {
             if let Some(vec) = self.index.get_mut(index) {
                 vec.push(id);
