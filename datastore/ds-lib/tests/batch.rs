@@ -78,16 +78,23 @@ mod test {
         let removed_items_num = 20;
         for _ in 0..test_items {
             b1.add(TestSerial2::new());
-            b2.add(TestSerial::new());
+            b2.add(TestSerial2::new());
         }
         for index in 0..removed_items_num as usize {
-            b2.remove(index + 50);
+            b1.remove(index + 50);
         }
         let indexies1 = ds.execute(TEST_SERIAL2_STORE, b1);
 
-        for index in 0..removed_items_num {}
+        assert_eq!(indexies1.len(), test_items - removed_items_num);
+
+        for index in 0..removed_items_num as usize {
+            let index = &indexies1[index];
+            ds.remove(TEST_SERIAL2_STORE, index);
+        }
 
         let indexies2 = ds.execute(TEST_SERIAL_STORE, b2);
+        assert_eq!(indexies2.len(), test_items);
+        ds.close()
     }
 
     #[test]

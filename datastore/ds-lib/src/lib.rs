@@ -96,9 +96,9 @@ impl Datastore {
             item
         }
     }
-    fn remove(&mut self, store_name: &str, index: String) -> Result<usize, DataStoreError> {
+    pub fn remove(&mut self, store_name: &str, index: &str) -> Result<usize, DataStoreError> {
         if let Some(store) = self.stores.get_mut(store_name) {
-            let rs = match store.remove(index) {
+            let rs = match store.remove(index.to_string()) {
                 Ok(s) => s.len(),
                 Err(e) => return Err(DataStoreError::DataError),
             };
