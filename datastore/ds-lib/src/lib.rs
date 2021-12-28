@@ -5,13 +5,12 @@ extern crate serde;
 extern crate serde_derive;
 
 use crate::batch::Batch;
-use crate::store::{DataError, Store};
+use crate::store::Store;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
 use std::collections::hash_map::HashMap;
 use std::fs::{create_dir_all, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 /*
@@ -30,7 +29,7 @@ macro_rules! zoom_and_enhance {
     }
 }
 */
-
+#[macro_export]
 macro_rules! format_inx {
     ($t: tt) => {
         format!("_$id={}", $t)
@@ -50,8 +49,10 @@ pub trait Schema {
 }
 
 pub trait StoreableWithSchema: Serialize + Schema + DeserializeOwned {}
+pub trait KeyValueElement: PartialEq + DeserializeOwned + Serialize + Clone + PartialEq {}
 
 const STORE_FILE_EXTENSION: &str = "sdbf";
+const KEY_VALUE_STORE: &str = "key_value_store";
 
 #[derive(Debug)]
 pub struct Datastore {
@@ -85,6 +86,44 @@ impl Datastore {
         }
     }
 
+    pub fn lookup<T: DeserializeOwned + PartialEq>(
+        self,
+        store_name: &str,
+        index: &str,
+    ) -> Option<Vec<(String, T)>> {
+        if let Some(store) = self.stores.get(store_name) {
+            return store.lookup_as_vec::<T>(index);
+        }
+        return None;
+    }
+
+    pub fn get_kvp_value<T: KeyValueElement>(self, key: &str) -> Option<T> {
+        if let Some(s) = self.stores.get(KEY_VALUE_STORE) {
+            let lookup_opt = s.lookup_as_vec(key);
+            if lookup_opt.is_some() {
+                let lookup_res = lookup_opt.unwrap();
+                let kvp_opt = lookup_res.first();
+                if kvp_opt.is_some() {
+                    let value: (String, T) = kvp_opt.unwrap().clone();
+                    return Some(value.1);
+                }
+                return None;
+            }
+            return None;
+        }
+        return None;
+    }
+
+    pub fn set_kvp<T: KeyValueElement>(&mut self, key: &str, value: T) {
+        if let Some(kvp_store) = self.stores.get_mut(KEY_VALUE_STORE) {
+            kvp_store.add_with_index(&value, vec![key.to_string()], None);
+        } else {
+            let mut s = Store::new();
+            s.add_with_index(&value, vec![key.to_string()], None);
+            self.stores.insert(KEY_VALUE_STORE.to_string(), s);
+        }
+    }
+
     pub fn get<T: StoreableWithSchema>(&mut self, store_name: &str, index: &str) -> Option<T> {
         if self.stores.contains_key(store_name) {
             self.stores[store_name].get(index)
@@ -98,9 +137,9 @@ impl Datastore {
     }
     pub fn remove(&mut self, store_name: &str, index: &str) -> Result<usize, DataStoreError> {
         if let Some(store) = self.stores.get_mut(store_name) {
-            let rs = match store.remove(index.to_string()) {
+            let rs = match store.remove(index) {
                 Ok(s) => s.len(),
-                Err(e) => return Err(DataStoreError::DataError),
+                Err(_) => return Err(DataStoreError::DataError),
             };
             return Ok(rs);
         }
@@ -117,7 +156,7 @@ impl Datastore {
             .expect("Unable to open file");
         let mut r = BufReader::new(f);
         let mut data: Vec<u8> = Vec::new();
-        r.read_to_end(&mut data);
+        let _ = r.read_to_end(&mut data);
 
         let reader = match flexbuffers::Reader::get_root(data.as_slice()) {
             Ok(reader) => reader,

@@ -73,7 +73,7 @@ mod test {
     fn test_multi_batch_can_execute() {
         let mut b1 = Batch::new();
         let mut b2 = Batch::new();
-        let mut ds = Datastore::new(Path::new("/tmp/test_store").to_path_buf());
+        let mut ds = Datastore::new(Path::new("/tmp/test_store1").to_path_buf());
         let test_items = 100;
         let removed_items_num = 20;
         for _ in 0..test_items {
@@ -89,7 +89,7 @@ mod test {
 
         for index in 0..removed_items_num as usize {
             let index = &indexies1[index];
-            ds.remove(TEST_SERIAL2_STORE, index);
+            let _ = ds.remove(TEST_SERIAL2_STORE, index);
         }
 
         let indexies2 = ds.execute(TEST_SERIAL_STORE, b2);
@@ -100,7 +100,7 @@ mod test {
     #[test]
     fn test_batch_can_be_executed() {
         let mut b = Batch::new();
-        let mut ds = Datastore::new(Path::new("/tmp/test_store").to_path_buf());
+        let mut ds = Datastore::new(Path::new("/tmp/test_store2").to_path_buf());
         let test_items = 100;
         for _ in 0..test_items {
             b.add(TestSerial2::new());

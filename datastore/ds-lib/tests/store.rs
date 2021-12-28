@@ -6,6 +6,7 @@ mod tests {
     use super::*;
     use dslib::store::Store;
     use dslib::*;
+    use rand::Rng;
     use serde::Serialize;
     use serde_derive::{Deserialize, Serialize};
     use std::collections::HashMap;
@@ -15,6 +16,32 @@ mod tests {
         pub payload: Vec<u64>,
         pub d: HashMap<String, String>,
         pub o: f32,
+    }
+
+    impl TestStruct {
+        pub fn new() -> TestStruct {
+            let mut rng = rand::thread_rng();
+            TestStruct {
+                o: rng.gen(),
+                payload: Vec::new(),
+                d: HashMap::new(),
+            }
+        }
+    }
+
+    #[test]
+    fn replace_replaces_in_store_correctly() {
+        let mut s = Store::new();
+        let mut inxes = Vec::new();
+        let t = TestStruct::new();
+        let t2 = TestStruct::new();
+        let inx1 = vec!["123".to_string(), "345".to_string(), "new_678".to_string()];
+        for _ in 0..20 {
+            let inx = s.add_with_index(&t, inx1.clone(), None);
+            inxes.push(inx);
+        }
+        s.replace(inxes.first().unwrap(), &t2, inx1.clone(), None);
+        assert_ne!(t.o, t2.o);
     }
 
     #[test]
@@ -33,7 +60,7 @@ mod tests {
         let inx3 = s.add_with_index(2, vec!["bar".to_string()], None);
 
         // Assert String
-        let string_r = s.find::<String>("bar");
+        let string_r = s.lookup_as_hashmap::<String>("bar");
         assert!(string_r.is_some());
         let string_m = string_r.unwrap();
         assert_eq!(string_m.len(), 2);
@@ -41,7 +68,7 @@ mod tests {
         assert!(string_m.contains_key(&inx2));
 
         // Assert i32
-        let string_r = s.find::<i32>("bar");
+        let string_r = s.lookup_as_hashmap::<i32>("bar");
         assert!(string_r.is_some());
         let string_m = string_r.unwrap();
         assert_eq!(string_m.len(), 1);
@@ -60,7 +87,7 @@ mod tests {
         assert_eq!((s.len() as u64), numer_of_items);
         for item in indexies.iter() {
             if item % 2 == 0 {
-                let _ = s.pop(item);
+                let _ = s.remove(&format_inx!(item));
             }
         }
         assert_eq!((s.len() as u64), (numer_of_items / 2));
@@ -131,7 +158,7 @@ mod tests {
 
         let bytes = hg_hu.as_bytes();
 
-        let v: Value = serde_json::from_slice(bytes).unwrap();
+        let v: serde_json::Value = serde_json::from_slice(bytes).unwrap();
         let v_obj = v.get("value").unwrap();
         let v_f64 = v_obj.as_f64().unwrap();
         assert!(v_f64 < 0.0);
@@ -145,7 +172,7 @@ mod tests {
             "value": 1234E-10
             }"#;
 
-        let v: Value = serde_json::from_str(json_str).unwrap();
+        let v: serde_json::Value = serde_json::from_str(json_str).unwrap();
         let j_obj = v.get("value").unwrap();
         let j_dou = j_obj.as_f64().unwrap();
         assert!(j_dou < 1e-6);

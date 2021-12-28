@@ -29,19 +29,79 @@ impl Store {
         }
     }
 
-    pub fn remove(&mut self, index: String) -> Result<Vec<u8>, DataError> {
-        let id = match self.index_to_id(&index) {
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `index`:
+    /// * `item`:
+    ///
+    /// returns: Option<DataError>
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// ```
+    pub fn replace<T: Serialize>(
+        &mut self,
+        index: &str,
+        item: T,
+        indexes: Vec<String>,
+        options: Option<DataOption>,
+    ) -> Option<DataError> {
+        let result = self.remove(index);
+        if result.is_err() {
+            return Some(DataError::NotFound);
+        }
+        let id = self.index_to_id(index).unwrap();
+        let mut s = flexbuffers::FlexbufferSerializer::new();
+        let data = match item.serialize(&mut s) {
+            Ok(_) => s.take_buffer(),
+            Err(_) => return Some(DataError::SerializationError),
+        };
+        self.data.insert(index.to_string(), data);
+        self.know_index.push(id);
+        self.index.insert(index.to_string(), vec![id]);
+        for index in indexes.iter() {
+            if let Some(vec) = self.index.get_mut(index) {
+                vec.push(id);
+            } else {
+                self.index.insert(index.clone(), vec![id]);
+            }
+        }
+        if options.is_some() {
+            self.meta.insert(index.to_string(), options.unwrap());
+        }
+        return None;
+    }
+
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `index`:
+    ///
+    /// returns: Result<Vec<u8, Global>, DataError>
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// ```
+    pub fn remove(&mut self, index: &str) -> Result<Vec<u8>, DataError> {
+        let id = match self.index_to_id(index) {
             Some(id) => id,
             None => return Err(DataError::IndexNotFound),
         };
-        let d = match self.pop(&id) {
+        let d = match self.pop_raw(&id) {
             Ok(v) => v,
             Err(e) => return Err(e),
         };
         Ok(d)
     }
 
-    pub fn pop(&mut self, index: &u64) -> Result<Vec<u8>, DataError> {
+    fn pop_raw(&mut self, index: &u64) -> Result<Vec<u8>, DataError> {
         let index = self.know_index.iter().position(|n| *n == *index);
         if let Some(found_index) = index {
             let removed = self.know_index.remove(found_index);
@@ -51,15 +111,10 @@ impl Store {
                 Some(v) => v,
             };
             self.index.remove(format_inx!(removed).as_str());
-            let mut keys_to_remove = Vec::new();
-            for (key, value) in self.index.iter() {
-                if *value.first().unwrap() == removed {
-                    keys_to_remove.push(key.clone());
+            for (_key, value) in self.index.iter_mut() {
+                if let Some(pos) = value.iter().position(|&i| i == removed) {
+                    value.remove(pos);
                 }
-            }
-
-            for key in keys_to_remove.iter() {
-                self.index.remove(key);
             }
 
             return Ok(removed_data);
@@ -97,6 +152,21 @@ impl Store {
         Some(id)
     }
 
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `item`:
+    /// * `indexes`:
+    /// * `options`:
+    ///
+    /// returns: String
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// ```
     pub fn add_with_index<T: Serialize>(
         &mut self,
         item: T,
@@ -129,7 +199,29 @@ impl Store {
         return format_inx!(inx);
     }
 
-    pub fn find<T: DeserializeOwned>(&self, term: &str) -> Option<HashMap<String, T>> {
+    pub fn lookup_as_vec<T: DeserializeOwned + PartialEq>(
+        &self,
+        term: &str,
+    ) -> Option<Vec<(String, T)>> {
+        let mut result = Vec::new();
+        let indexes = match self.index.get(term) {
+            Some(inx) => inx,
+            None => return None,
+        };
+        for id in indexes.iter() {
+            let inx = format_inx!(id);
+            if let Some(r) = self.get(inx.as_str()) {
+                let r_tuple: (String, T) = (inx, r);
+                if !result.contains(&r_tuple) {
+                    result.push(r_tuple);
+                }
+            }
+        }
+
+        return Some(result);
+    }
+
+    pub fn lookup_as_hashmap<T: DeserializeOwned>(&self, term: &str) -> Option<HashMap<String, T>> {
         let mut result = HashMap::new();
         let indexes = match self.index.get(term) {
             Some(inx) => inx,
