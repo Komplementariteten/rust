@@ -1,40 +1,25 @@
 extern crate flexbuffers;
 extern crate serde_json;
 
+mod test_util;
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use dslib::store::Store;
-    use dslib::*;
-    use rand::Rng;
-    use serde::Serialize;
-    use serde_derive::{Deserialize, Serialize};
     use std::collections::HashMap;
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-    struct TestStruct {
-        pub payload: Vec<u64>,
-        pub d: HashMap<String, String>,
-        pub o: f32,
-    }
+    use crate::test_util::TestStoreStruct;
+    use dslib::store::Store;
+    use dslib::*;
+    use serde::Serialize;
 
-    impl TestStruct {
-        pub fn new() -> TestStruct {
-            let mut rng = rand::thread_rng();
-            TestStruct {
-                o: rng.gen(),
-                payload: Vec::new(),
-                d: HashMap::new(),
-            }
-        }
-    }
+    use super::*;
 
     #[test]
     fn replace_replaces_in_store_correctly() {
         let mut s = Store::new();
         let mut inxes = Vec::new();
-        let t = TestStruct::new();
-        let t2 = TestStruct::new();
+        let t = TestStoreStruct::new();
+        let t2 = TestStoreStruct::new();
         let inx1 = vec!["123".to_string(), "345".to_string(), "new_678".to_string()];
         for _ in 0..20 {
             let inx = s.add_with_index(&t, inx1.clone(), None);
@@ -118,7 +103,7 @@ mod tests {
     #[test]
     fn test_store_adds_struct_and_gets_back() {
         let mut sp = Store::new();
-        let t = TestStruct {
+        let t = TestStoreStruct {
             payload: vec![1, 2],
             o: 9.245e-12,
             d: HashMap::from([
@@ -128,7 +113,7 @@ mod tests {
         };
         let test = t.clone();
         let inx = sp.add_single(t);
-        let ret: Option<TestStruct> = sp.get(inx.as_str());
+        let ret: Option<TestStoreStruct> = sp.get(inx.as_str());
         assert!(ret.is_some());
         let res = ret.unwrap();
         assert_eq!(res.o, test.o);
