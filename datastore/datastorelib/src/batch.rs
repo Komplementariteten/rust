@@ -1,4 +1,4 @@
-use crate::StoreableWithSchema;
+use crate::datastore::StoreableWithSchema;
 
 #[derive(Debug)]
 pub struct Batch<T: StoreableWithSchema> {

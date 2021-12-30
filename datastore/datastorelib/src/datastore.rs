@@ -1,9 +1,3 @@
-extern crate flexbuffers;
-extern crate serde;
-
-#[macro_use]
-extern crate serde_derive;
-
 use crate::batch::Batch;
 use crate::store::Store;
 use serde::de::DeserializeOwned;
@@ -13,31 +7,6 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::string::String;
-/*
-macro_rules! zoom_and_enhance {
-    (struct $name:ident { $($fname:ident : $ftype:ty), *}) => {
-        struct $name  {
-            $($fname : $ftype), *
-        }
-
-        impl $name {
-            fn field_names() -> &'static [&'static str] {
-                static NAMES: &'static [&'static str] = &[$(stringify!($fname)), *];
-                NAMES
-            }
-        }
-    }
-}
-*/
-#[macro_export]
-macro_rules! format_inx {
-    ($t: tt) => {
-        format!("_$id={}", $t)
-    };
-}
-
-pub mod batch;
-pub mod store;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DataOption {}
@@ -87,8 +56,46 @@ impl Datastore {
         }
     }
 
+    pub fn get_hm<T: DeserializeOwned>(
+        &self,
+        store_name: &str,
+        index: &str,
+    ) -> Option<HashMap<String, T>> {
+        if let Some(store) = self.stores.get(store_name) {
+            let r: Option<HashMap<String, T>> = store.get(index);
+            return r;
+        }
+        return None;
+    }
+
+    fn add_raw<T: Serialize>(&mut self, store_name: &str, item: T) -> String {
+        if let Some(store) = self.stores.get_mut(store_name) {
+            store.add_single(item)
+        } else {
+            let mut vs = Store::new();
+            let inx = vs.add_single(item);
+            self.stores.insert(store_name.to_string(), vs);
+            inx
+        }
+    }
+
+    pub fn add_hm<T: Serialize>(&mut self, store_name: &str, item: HashMap<String, T>) -> String {
+        self.add_raw(store_name, item)
+    }
+
+    pub fn add_vec<T: Serialize>(&mut self, store_name: &str, item: Vec<T>) -> String {
+        self.add_raw(store_name, item)
+    }
+
+    pub fn get_vec<T: DeserializeOwned>(&self, store_name: &str, index: &str) -> Option<Vec<T>> {
+        if let Some(store) = self.stores.get(store_name) {
+            return store.get(index);
+        }
+        return None;
+    }
+
     pub fn lookup<T: DeserializeOwned + PartialEq>(
-        self,
+        &self,
         store_name: &str,
         index: &str,
     ) -> Option<Vec<(String, T)>> {
@@ -212,8 +219,8 @@ impl Datastore {
         }
         let mut s = Store::new();
         let inx = s.add_with_index(&item, item.indexes(), item.desc());
-        self.save(&name);
         self.stores.insert(name.to_string(), s);
+        self.save(&name);
         Ok(inx)
     }
     pub fn save_all(&mut self) -> Option<()> {

@@ -1,4 +1,4 @@
-use crate::{DataOption, StoreSerializationError};
+use crate::datastore::{DataOption, StoreSerializationError};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -251,12 +251,10 @@ impl Store {
             Err(_err) => return None,
         };
 
-        let item = match T::deserialize(reader) {
-            Ok(i) => i,
-            Err(_err) => return None,
-        };
-
-        Some(item)
+        if let Ok(item) = T::deserialize(reader) {
+            return Some(item);
+        }
+        None
     }
 
     pub fn load(data: Vec<u8>) -> Result<Store, StoreSerializationError> {

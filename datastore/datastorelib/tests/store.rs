@@ -5,12 +5,12 @@ mod test_util;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::test_util::TestStoreStruct;
-    use dslib::store::Store;
-    use dslib::*;
+    use datastorelib::datastore::DataOption;
+    use datastorelib::store::Store;
+    use datastorelib::*;
     use serde::Serialize;
+    use std::collections::HashMap;
 
     use super::*;
 
@@ -46,7 +46,7 @@ mod tests {
 
         // Assert String
         let string_r = s.lookup_as_hashmap::<String>("bar");
-        assert!(string_r.is_some());
+        assert_eq!(string_r.is_some(), true);
         let string_m = string_r.unwrap();
         assert_eq!(string_m.len(), 2);
         assert!(string_m.contains_key(&inx1));

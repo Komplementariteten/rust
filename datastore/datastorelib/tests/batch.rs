@@ -1,9 +1,11 @@
-#[cfg(test)]
-mod test {
-    extern crate rand;
+mod test_util;
 
-    use dslib::batch::Batch;
-    use dslib::{DataOption, Datastore, Schema, StoreableWithSchema};
+#[cfg(test)]
+mod tests {
+    extern crate rand;
+    use crate::test_util::cleanup_test;
+    use datastorelib::batch::Batch;
+    use datastorelib::datastore::{DataOption, Datastore, Schema, StoreableWithSchema};
     use rand::Rng;
     use serde_derive::{Deserialize, Serialize};
     use std::path::Path;
@@ -73,7 +75,8 @@ mod test {
     fn test_multi_batch_can_execute() {
         let mut b1 = Batch::new();
         let mut b2 = Batch::new();
-        let mut ds = Datastore::new(Path::new("/tmp/test_store1").to_path_buf());
+        let p = Path::new("/tmp/test_batch1");
+        let mut ds = Datastore::new(p.to_path_buf());
         let test_items = 100;
         let removed_items_num = 20;
         for _ in 0..test_items {
@@ -94,13 +97,15 @@ mod test {
 
         let indexies2 = ds.execute(TEST_SERIAL_STORE, b2);
         assert_eq!(indexies2.len(), test_items);
-        ds.close()
+        ds.close();
+        cleanup_test(p.to_path_buf());
     }
 
     #[test]
     fn test_batch_can_be_executed() {
         let mut b = Batch::new();
-        let mut ds = Datastore::new(Path::new("/tmp/test_store2").to_path_buf());
+        let p = Path::new("/tmp/test_batch2");
+        let mut ds = Datastore::new(p.to_path_buf());
         let test_items = 100;
         for _ in 0..test_items {
             b.add(TestSerial2::new());
@@ -111,6 +116,7 @@ mod test {
         let get_opt: Option<TestSerial2> =
             ds.get(TEST_SERIAL2_STORE, add_items.last().unwrap().as_str());
         assert_eq!(get_opt.is_some(), true);
+        cleanup_test(p.to_path_buf());
     }
 
     #[test]

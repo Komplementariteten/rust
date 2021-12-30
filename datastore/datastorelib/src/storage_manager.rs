@@ -1,14 +1,18 @@
-extern crate dslib;
+extern crate serde_traitobject;
 
+use crate::batch::Batch;
+use crate::datastore::{Datastore, KeyValueElement, StoreableWithSchema};
 use crate::datastore_cfg::DatastoreConfig;
-use dslib::batch::Batch;
-use dslib::{Datastore, KeyValueElement, StoreableWithSchema};
-use std::borrow::{Borrow, BorrowMut};
-use std::fs::{create_dir_all, remove_file, File, OpenOptions};
+use serde_traitobject as st;
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::fs::{create_dir_all, remove_file, File};
 use std::ops::Drop;
 use std::path::Path;
 
 const MANAGER_LOCK: &str = ".lock";
+const VEC_STORE: &str = "vec";
+const HM_STORE: &str = "hm";
 
 #[derive(Debug, PartialEq)]
 pub enum StorageManagerError {
@@ -36,18 +40,18 @@ pub struct BatchManager<'a, T: StoreableWithSchema> {
 }
 
 impl<'a, T: StoreableWithSchema> BatchManager<'a, T> {
-    pub fn new(d: &mut Datastore) -> BatchManager<T> {
+    pub fn new(d: &'a mut Datastore) -> BatchManager<'a, T> {
         BatchManager {
             b: Batch::new(),
             s: d,
         }
     }
-    pub fn add(&mut self, item: T) -> &mut Self {
+    pub fn add(&'a mut self, item: T) -> &mut Self {
         self.b.add(item);
         return self;
     }
 
-    pub fn commit(&mut self, table_name: &str) -> Vec<String> {
+    pub fn commit(&'a mut self, table_name: &str) -> Vec<String> {
         let b = std::mem::replace(&mut self.b, Batch::new());
         let indexes = self.s.execute(table_name, b);
         indexes
@@ -58,6 +62,9 @@ impl StorageManager {
     pub fn is_locked(&self) -> bool {
         let lock_path = self.cfg.cfg_path.join(MANAGER_LOCK);
         lock_path.exists()
+    }
+    pub fn add_any(&mut self, item: HashMap<String, st::Box<dyn st::Any>>) -> String {
+        self.store.add_hm(HM_STORE, item)
     }
     pub fn get_kv<T: KeyValueElement>(&self, key: &str) -> Option<T> {
         self.store.get_kvp_value(self.cfg.kv_store.as_str(), key)

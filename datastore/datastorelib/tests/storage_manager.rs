@@ -2,10 +2,30 @@ mod test_util;
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::{OtherTestStruct, TestStruct};
-    use datastore::datastore_cfg::DatastoreConfig;
-    use datastore::storage_manager::StorageManager;
+    use crate::test_util::{cleanup_test, OtherTestStruct, TestStruct};
+    use datastorelib::datastore_cfg::DatastoreConfig;
+    use datastorelib::storage_manager::StorageManager;
+    use serde_traitobject as st;
+    use std::collections::HashMap;
     use std::path::Path;
+
+    #[test]
+    fn test_add_any_hm() {
+        let base_dir = "/tmp/test_anyhm";
+        let m_res = StorageManager::new(base_dir);
+        assert_eq!(m_res.is_ok(), true);
+        let mut m = m_res.unwrap();
+
+        let mut h: HashMap<String, st::Box<dyn st::Any>> = HashMap::new();
+        h.insert("foo".to_string(), st::Box::new(11));
+        h.insert("bar".to_string(), st::Box::new("hallo welt".to_string()));
+        h.insert("foo bar".to_string(), st::Box::new(TestStruct::new_rnd()));
+
+        let inx = m.add_any(h);
+        assert_eq!(inx.len() > 0, true);
+        std::mem::drop(m);
+        cleanup_test(Path::new(base_dir).to_path_buf());
+    }
 
     #[test]
     fn test_batch_with_sm() {
@@ -27,6 +47,8 @@ mod tests {
             .add(OtherTestStruct::new_rng())
             .commit("batch_tab");
         assert_eq!(inx2.len(), 2);
+        std::mem::drop(m);
+        cleanup_test(Path::new(base_dir).to_path_buf());
     }
 
     #[test]
@@ -40,26 +62,31 @@ mod tests {
         m.set_kv("key", "value".to_string());
         let get2: Option<String> = m.get_kv("key");
         assert_eq!(get2.is_some(), true);
+        std::mem::drop(m);
+        cleanup_test(Path::new(base_dir).to_path_buf());
     }
 
     #[test]
     fn test_sm_path_managing() {
-        let base_p = "/tmp/test_store1";
+        let base_p = "/tmp/test_sm1";
         let m_result = StorageManager::new(base_p);
         assert_eq!(m_result.is_ok(), true);
         let m = m_result.unwrap();
         assert_eq!(m.is_locked(), true);
         std::mem::drop(m);
-        let test_p = Path::new("/tmp/test_store1/.config/.lock");
+        let test_p = Path::new("/tmp/test_sm/.config/.lock");
         assert_eq!(test_p.exists(), false);
+        cleanup_test(Path::new(base_p).to_path_buf());
     }
     #[test]
     fn test_multi_sm_panic() {
-        let base_p = "/tmp/test_store2";
+        let base_p = "/tmp/test_sm2";
         let s1 = StorageManager::new(base_p);
         let s2 = StorageManager::new(base_p);
         assert_eq!(s1.is_ok(), true);
         assert_eq!(s2.is_ok(), false);
         assert_eq!(s2.is_err(), true);
+        std::mem::drop(s1);
+        cleanup_test(Path::new(base_p).to_path_buf());
     }
 }
