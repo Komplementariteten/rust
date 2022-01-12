@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};

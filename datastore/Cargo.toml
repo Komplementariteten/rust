@@ -8,4 +8,4 @@ edition = "2021"
 datastorelib = {path= "datastorelib" }
 
 [workspace]
-members = ["datastorelib", "ds-tools"]
+members = ["datastorelib", "dstools"]
