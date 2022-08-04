@@ -25,3 +25,4 @@ prk/
 target/
 pkg/
 .fingerprint/
+.idea/
