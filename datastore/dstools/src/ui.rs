@@ -1,5 +1,4 @@
 use crate::app::{App, InputContext};
-use crate::helper::{complete_folder, get_menu};
 use std::path::Path;
 
 use datastorelib::datastore::Datastore;
@@ -79,11 +78,12 @@ where
     f.render_widget(paragraph, chunks[1]);
 }
 
-fn draw_store_content<'a>(app: &'a mut App) -> Block<'a> {
+// ToDo: finish this
+/* fn draw_store_content<'a>(app: &'a mut App) -> Block<'a> {
     let block = Block::default().borders(Borders::ALL).title("Store");
     let mut list = List::
     return block;
-}
+} */
 
 fn draw_input<B>(f: &mut Frame<B>, app: &mut App, area: Rect)
 where

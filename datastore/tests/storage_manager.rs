@@ -4,7 +4,7 @@ mod test_util;
 mod tests {
     use crate::test_util::{cleanup_test, OtherTestStruct, TestStruct};
     use datastorelib::datastore_cfg::DatastoreConfig;
-    use datastorelib::storage_manager::StorageManager;
+    use datastore::storage_manager::StorageManager;
     use serde_traitobject as st;
     use std::collections::HashMap;
     use std::path::Path;

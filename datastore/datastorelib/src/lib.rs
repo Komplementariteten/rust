@@ -30,5 +30,4 @@ macro_rules! format_inx {
 pub mod batch;
 pub mod datastore;
 pub mod datastore_cfg;
-pub mod storage_manager;
 pub mod store;

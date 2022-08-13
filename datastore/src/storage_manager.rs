@@ -1,8 +1,8 @@
 extern crate serde_traitobject;
 
-use crate::batch::Batch;
-use crate::datastore::{Datastore, KeyValueElement, StoreableWithSchema};
-use crate::datastore_cfg::DatastoreConfig;
+use datastorelib::batch::Batch;
+use datastorelib::datastore::{Datastore, KeyValueElement, StoreableWithSchema};
+use datastorelib::datastore_cfg::DatastoreConfig;
 use serde_traitobject as st;
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
