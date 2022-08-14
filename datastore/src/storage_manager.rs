@@ -11,7 +11,7 @@ use std::ops::Drop;
 use std::path::Path;
 
 const MANAGER_LOCK: &str = ".lock";
-const VEC_STORE: &str = "vec";
+// const VEC_STORE: &str = "vec";
 const HM_STORE: &str = "hm";
 
 #[derive(Debug, PartialEq)]
@@ -75,7 +75,8 @@ impl StorageManager {
     pub fn batch<T: StoreableWithSchema>(&mut self) -> BatchManager<T> {
         BatchManager::new(self.store.borrow_mut())
     }
-    pub fn new(base_dir: &str) -> Result<StorageManager, StorageManagerError> {
+
+    pub fn new<P: AsRef<Path>>(base_dir: P) -> Result<StorageManager, StorageManagerError> {
         let cfg = DatastoreConfig::new(base_dir);
         let p = Path::new(&cfg.base_path);
         let lock_path = cfg.cfg_path.join(MANAGER_LOCK);

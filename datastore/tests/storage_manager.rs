@@ -1,9 +1,8 @@
+#[cfg(test)]
 mod test_util;
 
-#[cfg(test)]
 mod tests {
     use crate::test_util::{cleanup_test, OtherTestStruct, TestStruct};
-    use datastorelib::datastore_cfg::DatastoreConfig;
     use datastore::storage_manager::StorageManager;
     use serde_traitobject as st;
     use std::collections::HashMap;
