@@ -1,6 +1,7 @@
 use crate::app::{App, InputContext};
 use std::path::Path;
 
+use crate::helper::{complete_folder, get_menu};
 use datastorelib::datastore::Datastore;
 use tui::text::Text;
 use tui::{
@@ -403,7 +404,8 @@ where
                 } else {
                     Color::Red
                 };
-                ctx.print(server.coords.1, server.coords.0, "x", color);
+                //ToDo: API changed adapt color settings
+                ctx.print(server.coords.1, server.coords.0, "x" /*, color */);
             }
         })
         .marker(if app.enhanced_graphics {
