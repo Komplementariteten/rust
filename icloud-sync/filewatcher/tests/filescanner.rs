@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use filewatcher::filescanner::scan;
+    use filewatcher::filescanner::{scan, scan_ordered};
 
     #[test]
     fn filescanner_gets_all_relative_files() {
@@ -11,7 +11,7 @@ mod tests {
     }
     #[test]
     fn filescanner_gets_all_idrive_files() {
-        let r = scan("/Users/me/Library/Mobile Documents/com~apple~CloudDocs/Dokumente", true).unwrap();
+        let r = scan_ordered("/Users/me/Library/Mobile Documents/com~apple~CloudDocs/Dokumente", true).unwrap();
         println!("{}", &r.len());
         for file in r {
             println!("File: {}", file.path.to_str().unwrap());

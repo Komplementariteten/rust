@@ -49,25 +49,23 @@ impl Iterator for DirIterator {
                         self.evaluate_cur(dir_item.path(), meta);
                     }
                 }
-            } else {
-                // No directory left to visist
-                return None
             }
         }
-        self.file_cache.pop()
+        self.pop_file_cache()
     }
 }
 
-/* impl IntoIterator for DirIterator {
-    type Item = ();
-    type IntoIter = ();
-
-    fn into_iter(self) -> Self::IntoIter {
-        todo!()
-    }
-} */
-
 impl DirIterator {
+    fn pop_file_cache(&mut self) -> Option<PathFileEntry> {
+        if !self.file_cache.is_empty() {
+            return self.file_cache.pop();
+        }
+        if ! self.dir_stack.is_empty() {
+            return self.next();
+        } else {
+            return None;
+        }
+    }
     fn evaluate_cur(&mut self, d: PathBuf, m: Metadata) {
         if m.is_dir() {
             self.dir_stack.push(d)
