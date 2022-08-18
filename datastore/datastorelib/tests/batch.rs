@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(d.len(), 100);
     }
 
-    /*  Will not Work, Serialize has a genric Parameter
+    /*  Will not Work, Serialize has a generic Parameter
     #[test]
     fn test_dyn_vec() {
         let mut dyn_vec: Vec<Box<dyn Serialize>> = Vec::new();

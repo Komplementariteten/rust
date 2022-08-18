@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 
 [workspace]
-members = ["filescanner", "filewatcher"]
+members = ["filewatcher", "http"]

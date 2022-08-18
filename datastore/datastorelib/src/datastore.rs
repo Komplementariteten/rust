@@ -3,6 +3,7 @@ use crate::store::Store;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::HashMap;
+use std::fmt::Display;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
@@ -18,13 +19,16 @@ pub trait Schema {
 }
 
 pub trait StoreableWithSchema: Serialize + Schema + DeserializeOwned {}
-pub trait KeyValueElement: PartialEq + DeserializeOwned + Serialize + Clone + PartialEq {}
+pub trait KeyValueElement:
+    PartialEq + DeserializeOwned + Serialize + Clone + PartialEq + Display
+{
+}
 
 impl KeyValueElement for String {}
 impl KeyValueElement for i32 {}
 impl KeyValueElement for f32 {}
 
-const STORE_FILE_EXTENSION: &str = "sdbf";
+pub const STORE_FILE_EXTENSION: &str = "sdbf";
 
 #[derive(Debug)]
 pub struct Datastore {
@@ -105,29 +109,40 @@ impl Datastore {
         return None;
     }
 
-    pub fn get_kvp_value<T: KeyValueElement>(&self, store_name: &str, key: &str) -> Option<T> {
+    pub fn get_data_by_index<T: DeserializeOwned>(&self, store_name: &str, key: &str) -> Option<T> {
         if let Some(s) = self.stores.get(store_name) {
-            let lookup_opt = s.lookup_as_vec(key);
-            if lookup_opt.is_some() {
-                let lookup_res = lookup_opt.unwrap();
-                let kvp_opt = lookup_res.first();
-                if kvp_opt.is_some() {
-                    let value: (String, T) = kvp_opt.unwrap().clone();
-                    return Some(value.1);
-                }
-                return None;
-            }
-            return None;
+            return s.get_object(key);
+        }
+        None
+    }
+
+    pub fn set_data_by_index<T: Serialize>(&mut self, store_name: &str, key: &str, value: T) {
+        if let Some(s) = self.stores.get_mut(store_name) {
+            s.set_object(key, value);
+        } else {
+            let mut s = Store::new();
+            s.set_object(key, value);
+            self.stores.insert(store_name.to_string(), s);
+        }
+    }
+
+    pub fn get_kvp_value<T: KeyValueElement>(&mut self, store_name: &str, key: &str) -> Option<T> {
+        if let Some(s) = self.stores.get_mut(store_name) {
+            let obj_lookup: Option<T> = s.get_object(key);
+            return obj_lookup;
         }
         return None;
     }
 
     pub fn set_kvp<T: KeyValueElement>(&mut self, store_name: &str, key: &str, value: T) {
         if let Some(kvp_store) = self.stores.get_mut(store_name) {
-            kvp_store.add_with_index(&value, vec![key.to_string()], None);
+            println!("KVP-Store . key: {} => {}", key, value);
+            // kvp_store.replace()
+            kvp_store.set_object(key, value);
         } else {
             let mut s = Store::new();
-            s.add_with_index(&value, vec![key.to_string()], None);
+            println!("new KVP-Store - key: {} => {}", &key, &value);
+            s.set_object(key, value);
             self.stores.insert(store_name.to_string(), s);
         }
     }
@@ -153,7 +168,7 @@ impl Datastore {
         }
         Err(DataStoreError::StoreNotFound)
     }
-    fn open(&mut self, name: &str) -> Option<&Store> {
+    pub fn open(&mut self, name: &str) -> Option<&Store> {
         let mut file_name = self.base_dir.join(name);
         file_name.set_extension(STORE_FILE_EXTENSION);
         let f = OpenOptions::new()

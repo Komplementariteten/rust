@@ -1,5 +1,5 @@
 [package]
-name = "Filewatcher"
+name = "filewatcher"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 datastore = { path = "../../datastore"}
-filescanner = { path = "../filescanner"}
+serde = "*"
+serde_derive = "*"
+crc32fast = "*"

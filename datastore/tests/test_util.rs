@@ -3,6 +3,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter, write};
 use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
@@ -15,6 +16,12 @@ pub const STORE_TAB: &str = "test-store";
 pub struct KeyValueItem {
     element_ids: Vec<String>,
     pub content: String,
+}
+
+impl Display for KeyValueItem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 impl datastorelib::datastore::KeyValueElement for KeyValueItem {}

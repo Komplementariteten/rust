@@ -152,6 +152,34 @@ impl Store {
         Some(id)
     }
 
+    pub fn has_object(&mut self, index: &str) -> bool {
+        self.data.contains_key(index)
+    }
+
+    pub fn get_object<T: DeserializeOwned>(&self, index: &str) -> Option<T> {
+        let data = match self.data.get(index) {
+            Some(v) => v,
+            None => return None,
+        };
+        let reader = match flexbuffers::Reader::get_root(data.as_slice()) {
+            Ok(r) => r,
+            Err(_err) => return None,
+        };
+        if let Ok(item) = T::deserialize(reader) {
+            return Some(item);
+        }
+        None
+    }
+
+    pub fn set_object<T: Serialize>(&mut self, index: &str, item: T) {
+        let mut s = flexbuffers::FlexbufferSerializer::new();
+        let data = match item.serialize(&mut s) {
+            Ok(_) => s.take_buffer(),
+            Err(e) => panic!("Flexbuffer serialization Error: {:?}", e),
+        };
+        self.data.insert(index.to_string(), data);
+    }
+
     ///
     ///
     /// # Arguments
@@ -255,6 +283,10 @@ impl Store {
             return Some(item);
         }
         None
+    }
+
+    pub fn has_index(&mut self, index: &str) -> bool {
+        self.index.contains_key(index)
     }
 
     pub fn load(data: Vec<u8>) -> Result<Store, StoreSerializationError> {
