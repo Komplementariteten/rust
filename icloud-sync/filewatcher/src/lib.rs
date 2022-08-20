@@ -52,7 +52,7 @@ impl FileWatcher {
         }
     }
 
-    pub fn sync(&mut self) -> Option<Vec<PathFileEntry>> {
+    pub fn sync(&self) -> Option<Vec<PathFileEntry>> {
         let sync_folder:String = self.handle.get_kv(WATCH_FOLDER_KEY)?;
         let sr = match filescanner::scan_ordered(sync_folder, self.gen_hash) {
             Some(v) => v,

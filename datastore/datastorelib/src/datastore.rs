@@ -126,8 +126,8 @@ impl Datastore {
         }
     }
 
-    pub fn get_kvp_value<T: KeyValueElement>(&mut self, store_name: &str, key: &str) -> Option<T> {
-        if let Some(s) = self.stores.get_mut(store_name) {
+    pub fn get_kvp_value<T: KeyValueElement>(&self, store_name: &str, key: &str) -> Option<T> {
+        if let Some(s) = self.stores.get(store_name) {
             let obj_lookup: Option<T> = s.get_object(key);
             return obj_lookup;
         }

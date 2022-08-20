@@ -10,4 +10,5 @@ serde = "*"
 serde_json = "*"
 filewatcher = {path="../filewatcher"}
 dirs = "*"
+time = { version= "*", features = ["local-offset", "formatting"]}
 async-std = "*"

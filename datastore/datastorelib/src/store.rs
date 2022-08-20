@@ -152,7 +152,7 @@ impl Store {
         Some(id)
     }
 
-    pub fn has_object(&mut self, index: &str) -> bool {
+    pub fn has_object(self, index: &str) -> bool {
         self.data.contains_key(index)
     }
 

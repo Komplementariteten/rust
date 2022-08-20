@@ -92,7 +92,7 @@ impl StorageManager {
         }
         inx
     }
-    pub fn get_kv<T: KeyValueElement>(&mut self, key: &str) -> Option<T> {
+    pub fn get_kv<T: KeyValueElement>(&self, key: &str) -> Option<T> {
         self.store.get_kvp_value(self.cfg.kv_store.as_str(), key)
     }
     pub fn set_kv<T: KeyValueElement>(&mut self, key: &str, value: T) {
@@ -102,7 +102,7 @@ impl StorageManager {
         }
     }
 
-    pub fn get_kv_vector<T: DeserializeOwned>(&mut self, key: &str) -> Option<Vec<T>> {
+    pub fn get_kv_vector<T: DeserializeOwned>(&self, key: &str) -> Option<Vec<T>> {
         self.store
             .get_data_by_index(self.cfg.kv_store.as_str(), key)
     }
