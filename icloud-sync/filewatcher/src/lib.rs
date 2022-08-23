@@ -8,6 +8,7 @@ use crate::filescanner::PathFileEntry;
 const CACHE_KEY: &str = "fc_0.1";
 const WATCH_FOLDER_KEY: &str = "watch-folder";
 
+#[derive(Debug)]
 pub struct FileWatcher {
     handle: StorageManager,
     gen_hash: bool

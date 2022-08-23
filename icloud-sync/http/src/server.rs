@@ -4,7 +4,8 @@ use std::sync::mpsc::{sync_channel, SyncSender};
 use std::thread::{Builder, park_timeout, JoinHandle};
 use std::time::Duration;
 use std::net::{TcpListener, TcpStream};
-use crate::protocol::{HttpStatus, read_header, respond, respond_with_error};
+use std::sync::{Arc, Mutex};
+use crate::protocol::{BaseHttpRouting, HttpStatus, read_header, respond, respond_with_error, route};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum HttpServerReturn {
@@ -55,8 +56,20 @@ impl HttpServer {
         }
     }
 
-    fn handle_connection(mut stream: TcpStream) -> JoinHandle<()> {
+    fn handle_connection<R: BaseHttpRouting + Send>(listener: TcpListener, interface: Arc<Mutex<R>>) -> JoinHandle<()> {
         let ct = Builder::new().spawn(move || {
+            for incoming in listener.incoming() {
+                let mut stream = match incoming {
+                    Ok(stream) => stream,
+                    Err(_) => panic!("jdjsd")
+                };
+                let header = read_header(&mut stream);
+                if !header.is_ok() {
+                    respond_with_error(stream, HttpStatus::BadRequest);
+                } else {
+                    route(header.unwrap(), )
+                }
+            }
             let header = read_header(&mut stream);
             if !header.is_ok() {
                 respond_with_error(stream, HttpStatus::BadRequest);
@@ -68,12 +81,13 @@ impl HttpServer {
         ct.unwrap()
     }
 
-    pub fn start(&mut self, cfg:ServerCfg) -> Result<(), GeneralServerError>{
+    pub fn start<R: BaseHttpRouting + Send>(&mut self, cfg:ServerCfg, routing: R) -> Result<(), GeneralServerError>{
         let (tx, rx) = sync_channel(0);
+        let routing = Arc::new(Mutex::new(routing));
         // self.ctrl_tx = Some(tx);
         let th = Builder::new().name(cfg.main_thread_name.clone()).spawn(move || {
+            let routing_clone = Arc::clone(&routing);
             let listener = HttpServer::liste_to_connection(&cfg)?;
-            let mut child_threads = Vec::new();
             // main server loop
             loop {
                 if let Ok(cmd) = rx.try_recv() {
@@ -82,7 +96,7 @@ impl HttpServer {
                     }
                 }
                 park_timeout(Duration::from_millis(10));
-                for stream in listener.incoming() {
+                /*for stream in listener.incoming() {
                     let h = HttpServer::handle_connection(stream?);
                     child_threads.push(h);
                 }
@@ -95,7 +109,7 @@ impl HttpServer {
                     } else {
                         i += 1;
                     }
-                }
+                }*/
             }
         });
         if th.is_ok() {

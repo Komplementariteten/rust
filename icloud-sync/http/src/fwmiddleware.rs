@@ -1,11 +1,14 @@
+use std::collections::HashMap;
 use dirs::home_dir;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::{Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::Path;
+use async_std::task::block_on;
 use filewatcher::filescanner::PathFileEntry;
 use filewatcher::FileWatcher;
 use crate::helper::{from_json_to_entry, write_to};
+use crate::protocol::{BaseHttpRouting, HttpResponse};
 
 type GeneralFwMiddlewareError = Box<dyn Error + Sync + Send + 'static>;
 
@@ -21,6 +24,7 @@ impl Display for FileWatcherInterfaceErrors {
     }
 }
 
+#[derive(Debug)]
 pub struct FwInterface {
     fw: FileWatcher
 }
@@ -40,6 +44,44 @@ pub fn init_idrive() -> Result<FwInterface, GeneralFwMiddlewareError> {
         return Err(GeneralFwMiddlewareError::try_from(FileWatcherInterfaceErrors::IDrivePathDoesNotExist).unwrap());
     }
     FwInterface::new(idrive_path, cache_path)
+}
+
+impl BaseHttpRouting for FwInterface {
+    fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        let rel_path = match resource.strip_prefix("/") {
+            Some(s) => s,
+            None => return HttpResponse::bad_request()
+        };
+        if rel_path.starts_with("list") {
+            let mut writer = BufWriter::new(Vec::new());
+            let list = block_on(self.stream_update_as_json(&mut writer));
+            return HttpResponse::ok_with_json(writer.get_ref().to_vec());
+        }
+        return HttpResponse::not_found();
+    }
+
+    fn post<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        HttpResponse::not_implemented()
+    }
+
+    fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        HttpResponse::ok()
+    }
+
+    fn put<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        HttpResponse::not_implemented()
+    }
+
+    fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        HttpResponse::not_implemented()
+    }
+
+    fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        HttpResponse::not_implemented()
+    }
+}
+
+unsafe impl Send for FwInterface {
 }
 
 impl FwInterface {
