@@ -1,6 +1,7 @@
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpStream;
+use std::str::from_utf8;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc2822;
 
@@ -61,7 +62,7 @@ impl Into<Vec<u8>> for HttpResponse {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum HttpStatus {
+pub(crate) enum HttpStatus {
     BadRequest,
     Ok,
     NotImplemented,
@@ -142,7 +143,32 @@ impl HttpResponse {
         }
 
     }
-    pub fn server_error(body: &[u8]) -> HttpResponse {
+    pub fn ok_bin(data: Vec<u8>, compressed: bool) -> HttpResponse {
+        let mut addition_header: HashMap<String, String> = Default::default();
+        addition_header.insert("Content-Type".to_string(), "application/octet-stream; charset=utf-8".to_string());
+        let (status, msg) = HttpStatus::Ok.into();
+        HttpResponse {
+            status: status,
+            msg: msg,
+            date: OffsetDateTime::now_utc(),
+            header: addition_header,
+            is_compressed: compressed,
+            content: data
+        }
+    }
+
+    pub fn server_error() -> HttpResponse {
+        let (status, msg) = HttpStatus::ServerError.into();
+        HttpResponse {
+            status: status,
+            msg: msg.clone(),
+            date: OffsetDateTime::now_utc(),
+            header: Default::default(),
+            is_compressed: false,
+            content: msg.into_bytes()
+        }
+    }
+    pub fn server_error_with_text(body: &[u8]) -> HttpResponse {
         let (status, msg) = HttpStatus::ServerError.into();
         HttpResponse {
             status: status,
@@ -207,39 +233,41 @@ struct HttpInitializer {
     header: HashMap<String, String>
 }
 
-
 pub trait BaseHttpRouting {
     fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn post<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse;
+    fn post(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse;
     fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn put<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse;
+    fn put(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse;
     fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
     fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-}
-
-pub fn route<R: Read, HR: BaseHttpRouting>(header: HttpHeader, stream: &mut R, routing: &mut HR) -> HttpResponse {
-    match header.verb {
-        HttpVerb::Get => routing.get(header.resource, header.header),
-        HttpVerb::Post => routing.post(header.resource, header.header, stream),
-        HttpVerb::Head => routing.head(header.resource, header.header),
-        HttpVerb::Put => routing.put(header.resource, header.header, stream),
-        HttpVerb::Options => routing.options(header.resource, header.header),
-        _ => HttpResponse::not_implemented()
+    fn error<W: Write>(&self, stream: &mut W, status: HttpResponse) -> Result<(), ProtocolError>  {
+        let bytes: Vec<u8> = status.into();
+        let _ = match stream.write(&bytes) {
+            Ok(_) => {
+                let _ = stream.flush();
+                return Ok(())
+            },
+            Err(_) => return Err(ProtocolError::WriteResponseError)
+        };
     }
-}
-
-pub fn respond<R, W, RO>(input: &mut R, output: &mut W, routing: &mut RO) -> Result<(), ProtocolError>
-    where R: Read, W: Write, RO: BaseHttpRouting {
-    let header = read_header(input.borrow_mut())?;
-    let resp = route(header, input.borrow_mut(), routing);
-    let bytes: Vec<u8> = resp.into();
-    let _ = match output.write(&bytes) {
-        Ok(_) => {
-            let _ = output.flush();
-            return Ok(())
-        },
-        Err(_) => return Err(ProtocolError::WriteResponseError)
-    };
+    fn execute(&mut self, header: HttpHeader, stream: &mut TcpStream, body:Vec<u8>) -> Result<(), ProtocolError> {
+        let response = match header.verb {
+            HttpVerb::Get => self.get(header.resource, header.header),
+            HttpVerb::Post => self.post(header.resource, header.header, body),
+            HttpVerb::Head => self.head(header.resource, header.header),
+            HttpVerb::Put => self.put(header.resource, header.header, body),
+            HttpVerb::Options => self.options(header.resource, header.header),
+            _ => HttpResponse::not_implemented()
+        };
+        let bytes: Vec<u8> = response.into();
+        let _ = match stream.write(&bytes) {
+            Ok(_) => {
+                let _ = stream.flush();
+                return Ok(())
+            },
+            Err(_) => return Err(ProtocolError::WriteResponseError)
+        };
+    }
 }
 
 pub fn respond_from<W: Write>(mut stream: W, resp: HttpResponse) {
@@ -275,6 +303,57 @@ fn update_initializer(i: &mut HttpInitializer, header_line: String) {
             let _ = i.header.insert(key, value);
         }
     }
+}
+
+/* pub fn read_body<R: Read> (stream: &mut R) -> Result<Vec<u8>, ProtocolError> {
+    let br = BufReader::new(stream);
+    let body_started = false;
+    for line in br.lines().map(| l | l.unwrap()) {
+
+        if line.is_empty() {
+            body_started = true
+        }
+    }
+} */
+
+pub fn read_http (stream: &mut TcpStream) -> Result<(HttpHeader, Vec<u8>), ProtocolError> {
+    let mut initalizer = HttpInitializer {
+        verb: None,
+        resource: None,
+        http_version: None,
+        header: HashMap::new()
+    };
+    let mut http_str = "".to_string();
+    let mut body = false;
+    let mut body_str = "".to_string();
+    let mut buff: [u8; 300] = [0; 300];
+    loop {
+        let readen = match stream.read(&mut buff) {
+          Ok(s) => s,
+            Err(_) => 0
+        };
+        if let Ok(str) = from_utf8(&buff[..readen]) {
+            http_str.push_str(str);
+        }
+        if readen < buff.len() {
+            // request readen
+            break;
+        }
+    }
+
+    for line in http_str.lines() {
+        if body {
+            body_str.push_str(line);
+        }
+        if line.is_empty() {
+            body = true;
+        }
+        if !body {
+            update_initializer(&mut initalizer, line.to_string());
+         }
+    }
+    let header = HttpHeader::try_from(initalizer)?;
+    Ok((header, body_str.into_bytes()))
 }
 
 pub fn read_header<R: Read> (stream: &mut R) -> Result<HttpHeader, ProtocolError>{

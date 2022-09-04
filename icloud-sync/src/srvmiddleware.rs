@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use dirs::home_dir;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use std::fs::read;
 use std::io::{BufWriter, Read, Write};
+use std::mem;
 use std::path::Path;
 use async_std::task::block_on;
 use filewatcher::filescanner::PathFileEntry;
 use filewatcher::FileWatcher;
-use crate::helper::{from_json_to_entry, write_to};
-use crate::protocol::{BaseHttpRouting, HttpResponse};
+use http::helper::{from_json_to_entry, write_to};
+use http::protocol::{BaseHttpRouting, HttpResponse};
 
 type GeneralFwMiddlewareError = Box<dyn Error + Sync + Send + 'static>;
 
@@ -26,7 +28,8 @@ impl Display for FileWatcherInterfaceErrors {
 
 #[derive(Debug)]
 pub struct FwInterface {
-    fw: FileWatcher
+    fw: FileWatcher,
+    mem: Vec<PathFileEntry>,
 }
 
 impl Error for FileWatcherInterfaceErrors{}
@@ -52,23 +55,57 @@ impl BaseHttpRouting for FwInterface {
             Some(s) => s,
             None => return HttpResponse::bad_request()
         };
+
+        // List Files
         if rel_path.starts_with("list") {
             let mut writer = BufWriter::new(Vec::new());
-            let list = block_on(self.stream_update_as_json(&mut writer));
+            let _ = block_on(self.stream_update_as_json(&mut writer));
             return HttpResponse::ok_with_json(writer.get_ref().to_vec());
+        }
+
+        // Download File
+        if rel_path.starts_with("file") {
+            let file_id_str = rel_path.strip_prefix("file/").unwrap();
+            let file_id = match file_id_str.parse::<u32>() {
+                Ok(id) => id,
+                Err(_) => return HttpResponse::not_found()
+            };
+            let files = match self.mem.iter().find(| &entry | entry.id == file_id ) {
+                Some(e) => e.clone(),
+                None => return HttpResponse::not_found(),
+            };
+
+            let data = match read(files.path) {
+                Ok(d) => d,
+                Err(_) => return HttpResponse::server_error()
+            };
+            return HttpResponse::ok_bin(data, false);
         }
         return HttpResponse::not_found();
     }
 
-    fn post<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
-        HttpResponse::not_implemented()
+    fn post(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse {
+        let rel_path = match resource.strip_prefix("/") {
+            Some(s) => s,
+            None => return HttpResponse::bad_request()
+        };
+
+        if rel_path.starts_with("ack") {
+            let result = block_on(self.ack_from_stream(stream.as_slice()));
+            match result {
+                Ok(_) => return HttpResponse::ok(),
+                Err(_) => return HttpResponse::server_error()
+            }
+        }
+        return HttpResponse::not_implemented()
+
     }
 
     fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
         HttpResponse::ok()
     }
 
-    fn put<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+    fn put(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse {
         HttpResponse::not_implemented()
     }
 
@@ -88,17 +125,31 @@ impl FwInterface {
 
     pub fn new<P: AsRef<Path>>(folder:P, cache: P) -> Result<FwInterface, GeneralFwMiddlewareError> {
         return match FileWatcher::new(folder, cache, true) {
-            Ok(fw) => Ok(FwInterface{
-                fw: fw
-            }),
+            Ok(fw) => {
+                let mut fwi = FwInterface{
+                    mem: Vec::new(),
+                    fw: fw
+                };
+                fwi.init_cache();
+                Ok(fwi)
+            },
             Err(e) => Err(GeneralFwMiddlewareError::try_from(e).unwrap())
         };
     }
 
-    pub async fn update(&self) -> Vec<PathFileEntry> {
+    fn init_cache(&mut self) {
+        self.mem = match self.fw.get_cache(){
+            Some(c) => c,
+            None => Vec::new()
+        };
+    }
+
+    async fn update(&mut self) -> Vec<PathFileEntry> {
         let list = self.fw.sync();
         if list.is_some() {
-            list.unwrap()
+            let v = list.unwrap();
+            self.mem = v.clone();
+            v
         } else {
             Vec::new()
         }
@@ -114,8 +165,12 @@ impl FwInterface {
         Ok(ok_count)
     }
 
-    pub async fn stream_update_as_json<W: Write>(&self, writer: &mut W) -> serde_json::Result<()> {
-        let r = self.update().await;
-        write_to(writer, r)
+    pub async fn stream_update_as_json<W: Write>(&mut self, writer: &mut W) -> serde_json::Result<()> {
+        if self.mem.len() > 0 {
+            write_to(writer, self.mem.clone())
+        } else {
+            let r = self.update().await;
+            write_to(writer, r)
+        }
     }
 }

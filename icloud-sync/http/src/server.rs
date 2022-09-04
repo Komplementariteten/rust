@@ -1,25 +1,19 @@
-use std::borrow::BorrowMut;
-use std::error::Error;
-use std::sync::mpsc::{sync_channel, SyncSender};
-use std::thread::{Builder, park_timeout, JoinHandle};
-use std::time::Duration;
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener};
 use std::sync::{Arc, Mutex};
-use crate::protocol::{BaseHttpRouting, HttpStatus, read_header, respond, respond_with_error, route};
+use std::thread::{Builder};
+
+use crate::protocol::{BaseHttpRouting, HttpResponse, read_http};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum HttpServerReturn {
     Ok,
-    ChannelError,
+    ResponseError,
+    StreamError,
     ShutdownError,
-    ListenerError
+    ListenerError,
+    ThreaddingError,
+    NotStarted
 }
-
-enum HttpServerCtrl {
-    Close
-}
-
-type GeneralServerError = Box<dyn Error + Sync + Send + 'static>;
 
 #[derive(Debug)]
 pub struct ServerCfg {
@@ -29,108 +23,62 @@ pub struct ServerCfg {
 
 #[derive(Debug)]
 pub struct HttpServer{
-    hndl: Option<ServerHandle>,
 }
 
 #[derive(Debug)]
 struct ServerHandle {
-    main_th: JoinHandle<Result<HttpServerReturn, GeneralServerError>>,
-    ctrl_tx: SyncSender<HttpServerCtrl>
 }
 
 impl HttpServer {
-    pub const fn new() -> HttpServer {
-        HttpServer{
-            hndl: None
-        }
-    }
-
-    pub const fn is_started(&self) -> bool {
-        self.hndl.is_some()
-    }
-
-    fn liste_to_connection(cfg: &ServerCfg) -> Result<TcpListener, GeneralServerError> {
+    fn listen_to_connection(cfg: &ServerCfg) -> Option<TcpListener> {
         match TcpListener::bind(format!("0.0.0.0:{}", cfg.http_port)) {
-            Ok(l) => Ok(l),
-            Err(e) => Err(GeneralServerError::try_from(e).unwrap())
+            Ok(l) => Some(l),
+            Err(_) => None
         }
     }
 
-    fn handle_connection<R: BaseHttpRouting + Send>(listener: TcpListener, interface: Arc<Mutex<R>>) -> JoinHandle<()> {
-        let ct = Builder::new().spawn(move || {
-            for incoming in listener.incoming() {
-                let mut stream = match incoming {
-                    Ok(stream) => stream,
-                    Err(_) => panic!("jdjsd")
-                };
-                let header = read_header(&mut stream);
-                if !header.is_ok() {
-                    respond_with_error(stream, HttpStatus::BadRequest);
-                } else {
-                    route(header.unwrap(), )
-                }
-            }
-            let header = read_header(&mut stream);
-            if !header.is_ok() {
-                respond_with_error(stream, HttpStatus::BadRequest);
-            } else {
-                //respond(stream, )
-                respond_with_error(stream, HttpStatus::Ok);
-            }
-        });
-        ct.unwrap()
-    }
-
-    pub fn start<R: BaseHttpRouting + Send>(&mut self, cfg:ServerCfg, routing: R) -> Result<(), GeneralServerError>{
-        let (tx, rx) = sync_channel(0);
-        let routing = Arc::new(Mutex::new(routing));
+    pub fn run<R: BaseHttpRouting + Send + 'static>(cfg:ServerCfg, routing: R) -> HttpServerReturn {
+        let routing_arc = Arc::new(Mutex::new(routing));
         // self.ctrl_tx = Some(tx);
         let th = Builder::new().name(cfg.main_thread_name.clone()).spawn(move || {
-            let routing_clone = Arc::clone(&routing);
-            let listener = HttpServer::liste_to_connection(&cfg)?;
+            let listener_opt = HttpServer::listen_to_connection(&cfg);
+            if listener_opt.is_none() {
+                return HttpServerReturn::ListenerError
+            }
+            let listener = listener_opt.unwrap();
             // main server loop
             loop {
-                if let Ok(cmd) = rx.try_recv() {
-                    match cmd {
-                        HttpServerCtrl::Close => return Ok(HttpServerReturn::Ok)
-                    }
+                // park_timeout(Duration::from_millis(10));
+                for stream in listener.incoming() {
+                    let mut stream = stream.unwrap();
+                    let interface = Arc::clone(&routing_arc);
+                    let _ = Builder::new().spawn(move || {
+                        let http_r = read_http(&mut stream);
+                        let mut route_handle = interface.lock().unwrap();
+                        if !http_r.is_ok() {
+                            match route_handle.error(&mut stream, HttpResponse::bad_request()) {
+                                Ok(_) => HttpServerReturn::Ok,
+                                Err(_) => HttpServerReturn::StreamError
+                            }
+                        } else {
+                            let (header, body) = http_r.unwrap();
+                            match route_handle.execute(header, &mut stream, body) {
+                                Ok(_) => HttpServerReturn::Ok,
+                                Err(_) => HttpServerReturn::ResponseError
+                            }
+                        }
+                    });
+
                 }
-                park_timeout(Duration::from_millis(10));
-                /*for stream in listener.incoming() {
-                    let h = HttpServer::handle_connection(stream?);
-                    child_threads.push(h);
-                }
-                let mut i = 0 ;
-                while i < child_threads.len() {
-                    let jh = child_threads.get(i).unwrap();
-                    if jh.is_finished() {
-                        let jh = child_threads.remove(i);
-                        let _ = jh.join();
-                    } else {
-                        i += 1;
-                    }
-                }*/
             }
         });
         if th.is_ok() {
-            self.hndl = Some(ServerHandle {
-                ctrl_tx: tx,
-                main_th: th.unwrap()
-            });
-            Ok(())
+            match th.unwrap().join() {
+                Ok(r) => r,
+                Err(_) => HttpServerReturn::ShutdownError
+            }
         } else {
-            Err(GeneralServerError::try_from(th.err().unwrap()).unwrap())
-        }
-    }
-    pub fn stop(self) -> Result<HttpServerReturn, GeneralServerError> {
-        if self.hndl.is_some() {
-            self.hndl.as_ref().unwrap().ctrl_tx.send(HttpServerCtrl::Close)?;
-        } else {
-            panic!("Controll channel is not initialized")
-        }
-        match self.hndl.unwrap().main_th.join() {
-            Ok(r) => r,
-            Err(_) => Err(GeneralServerError::try_from("join error").unwrap())
+            HttpServerReturn::ThreaddingError
         }
     }
 }

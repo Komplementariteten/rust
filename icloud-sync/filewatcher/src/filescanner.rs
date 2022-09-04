@@ -12,7 +12,8 @@ pub struct PathFileEntry {
     pub size: u64,
     pub created: SystemTime,
     pub modified: SystemTime,
-    pub crc32: u32
+    pub crc32: u32,
+    pub id: u32
 }
 
 #[derive(Debug)]
@@ -25,6 +26,7 @@ struct DirIteratorOpts {
 
 #[derive(Debug)]
 struct DirIterator {
+    next_id: u32,
     file_cache: Vec<PathFileEntry>,
     dir_stack: Vec<PathBuf>,
     opts: DirIteratorOpts,
@@ -77,10 +79,12 @@ impl DirIterator {
                     hash = crc32fast::hash(&data.unwrap());
                 }
             }
+            self.next_id += 1;
             self.file_cache.push(PathFileEntry {
                 path: d,
                 crc32: hash,
                 size: m.size(),
+                id: self.next_id,
                 modified: m.modified().expect("modified-time not supported on your os"),
                 created: m.created().expect("created-time not supported on your os"),
             })
@@ -93,6 +97,7 @@ impl DirIterator {
         };
         let d_stack = vec![p];
         DirIterator {
+            next_id: 0,
             opts: opts,
             file_cache: Vec::new(),
             dir_stack: d_stack

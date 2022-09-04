@@ -5,13 +5,13 @@ mod tests {
     use std::io::{BufReader, BufWriter, Read};
     use std::str::from_utf8;
     use time::OffsetDateTime;
-    use http::protocol::{BaseHttpRouting, HttpResponse, HttpVerb, read_header, respond};
+    use http::protocol::{BaseHttpRouting, HttpResponse, HttpVerb, read_header};
 
     struct TestRouting {
     }
 
     impl BaseHttpRouting for TestRouting {
-        fn get(&self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 1,
@@ -22,7 +22,7 @@ mod tests {
             }
         }
 
-        fn post<R: Read>(&self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        fn post<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 2,
@@ -33,7 +33,7 @@ mod tests {
             }
         }
 
-        fn head(&self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 3,
@@ -44,7 +44,7 @@ mod tests {
             }
         }
 
-        fn put<R: Read>(&self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        fn put<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 4,
@@ -56,7 +56,7 @@ mod tests {
 
         }
 
-        fn delete(&self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 5,
@@ -68,7 +68,7 @@ mod tests {
 
         }
 
-        fn options(&self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 6,
@@ -78,27 +78,6 @@ mod tests {
                 content: vec![]
             }
         }
-    }
-
-    #[test]
-    fn protocol_does_route() {
-        let http = "GET /hello.txt HTTP/1.1
-User-Agent: curl/7.64.1
-Host: www.example.com
-Accept-Language: en, mi
-
-<body></body>".as_bytes();
-        let mut br = BufReader::new(http);
-        let mut bw = BufWriter::new(Vec::new());
-        let routing = TestRouting{};
-        let res = respond(br, bw.borrow_mut(), routing);
-        assert!(res.is_ok());
-        let utf8 = from_utf8(bw.get_ref());
-        assert!(utf8.is_ok());
-        let utf8_str = utf8.unwrap();
-        let first = utf8_str.lines().next();
-        assert!(first.is_some());
-        assert_eq!(first.unwrap() ,"HTTP/1.1 1 ");
     }
 
     #[test]

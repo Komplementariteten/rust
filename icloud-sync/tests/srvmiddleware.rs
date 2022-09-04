@@ -5,12 +5,24 @@ mod tests {
     use std::str::from_utf8;
     use async_std::task::block_on;
     use dirs::home_dir;
-    use filewatcher::filescanner::PathFileEntry;
-    use http::fwmiddleware::{MIDDLEWARE_CACHE_DIR, init_idrive};
+    use http::server::ServerCfg;
 
-    fn clear_test_files() {
+    /* fn clear_test_files() {
         let hd = home_dir().unwrap().join(MIDDLEWARE_CACHE_DIR);
         let _ = remove_dir_all(hd);
+    } */
+
+    /*
+    #[test]
+    fn fwinterface_servs() {
+        // clear_test_files();
+        let m = init_idrive();
+        assert!(m.is_ok());
+        let middleware = m.unwrap();
+        http::server::HttpServer::run(ServerCfg {
+            main_thread_name: "fwää".to_string(),
+            http_port: 8088
+        }, middleware);
     }
 
     #[test]
@@ -25,7 +37,7 @@ mod tests {
         let fr = bwrite.flush();
         assert!(fr.is_ok());
         let data = bwrite.get_ref();
-        let mut bread = BufReader::<&[u8]>::new(data);
+        let bread = BufReader::<&[u8]>::new(data);
         let c = block_on(middleware.ack_from_stream(bread));
         if c.is_err() {
             let enc = from_utf8(data);
@@ -43,14 +55,14 @@ mod tests {
         clear_test_files();
         let m = init_idrive();
         assert!(m.is_ok());
-        let middleware = m.unwrap();
+        let mut middleware = m.unwrap();
         let mut bwrite = BufWriter::new(Vec::new());
         let wr = block_on(middleware.stream_update_as_json(&mut bwrite));
         assert!(wr.is_ok());
-        let flush_err = bwrite.flush();
+        let _ = bwrite.flush();
         let enc = from_utf8(bwrite.buffer());
         assert!(enc.is_ok());
         let str = enc.unwrap();
         println!("{}", str);
-    }
+    } */
 }

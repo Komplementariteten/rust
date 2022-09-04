@@ -78,6 +78,17 @@ impl<'a, T: StoreableWithSchema> BatchManager<'a, T> {
 }
 
 impl StorageManager {
+    pub fn empty() -> StorageManager {
+        StorageManager {
+            store: Datastore::new(Path::new("").to_path_buf()),
+            cfg: DatastoreConfig {
+                base_path: Default::default(),
+                cfg_path: Default::default(),
+                kv_store: "".to_string(),
+            },
+            save_on_op: false,
+        }
+    }
     pub fn sync(&mut self) -> Option<()> {
         self.store.save_all()
     }
@@ -118,6 +129,7 @@ impl StorageManager {
     pub fn batch<T: StoreableWithSchema>(&mut self) -> BatchManager<T> {
         BatchManager::new(self.store.borrow_mut(), self.save_on_op)
     }
+
     pub fn default<P: AsRef<Path>>(base_dir: P) -> Result<StorageManager, StorageManagerError> {
         StorageManager::new(base_dir, true)
     }
@@ -135,7 +147,10 @@ impl StorageManager {
             create_dir_all(&cfg.cfg_path).expect("Failed to create config path");
         }
         if lock_path.exists() {
-            return Err(StorageManagerError::ManagerAlreadyExists);
+            match remove_file(lock_path) {
+                Ok(_) => (),
+                Err(_) => return Err(StorageManagerError::ManagerAlreadyExists)
+            }
         } else {
             let _ = match File::create(lock_path) {
                 Ok(f) => f,

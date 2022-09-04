@@ -1,6 +1,9 @@
 pub mod filescanner;
 
+use std::borrow::Borrow;
 use std::error::Error;
+use std::fs::read;
+use std::mem;
 use std::path::Path;
 use datastore::storage_manager::StorageManager;
 use crate::filescanner::PathFileEntry;
@@ -16,7 +19,26 @@ pub struct FileWatcher {
 
 pub type FileWatcherError = Box<dyn Error + Sync + Send + 'static>;
 
+impl Drop for FileWatcher{
+    fn drop(&mut self) {
+        let _ = mem::replace(&mut self.handle, StorageManager::empty());
+    }
+}
+
 impl FileWatcher {
+    pub fn read_file(&mut self, id: u32) -> Option<Vec<u8>> {
+        if let Some(cache) = self.handle.get_kv_vector::<PathFileEntry>(CACHE_KEY){
+            let entry = match cache.into_iter().find(| direntry| direntry.id == id){
+                Some(e) => e,
+                None => return None
+            };
+            match read(entry.path) {
+                Ok(d) => return Some(d),
+                Err(_) =>  return None
+            }
+        }
+        None
+    }
     pub fn new<S:AsRef<Path>>(folder: S, cache_path: S, with_filehash: bool) -> Result<FileWatcher, FileWatcherError> {
         let folder_string = match folder.as_ref().to_str() {
             Some(str_ref) => str_ref.to_string(),
@@ -38,6 +60,10 @@ impl FileWatcher {
     pub fn list(&mut self) -> Option<Vec<PathFileEntry>> {
         let sync_folder:String = self.handle.get_kv(WATCH_FOLDER_KEY)?;
         filescanner::scan_ordered(sync_folder, self.gen_hash)
+    }
+
+    pub fn get_cache(&mut self) -> Option<Vec<PathFileEntry>> {
+        return  self.handle.get_kv_vector::<PathFileEntry>(CACHE_KEY);
     }
 
     pub fn ack(&mut self, direntry: PathFileEntry) {
