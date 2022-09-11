@@ -173,16 +173,17 @@ impl HttpResponse {
             "application/octet-stream; charset=utf-8".to_string(),
         );
         addition_header.insert("Content-Transfer-Encoding".to_string(), "base64".to_string());
-
-        let data = base64::encode(data);
+        let mut buff = Vec::new();
+        buff.resize(data.len() * 4 / 3 + 4, 0);
+        let _ = base64::encode_config_slice(data, base64::URL_SAFE_NO_PAD, &mut buff);
         let (status, msg) = HttpStatus::Ok.into();
         HttpResponse {
-            status: status,
-            msg: msg,
+            status,
+            msg,
             date: OffsetDateTime::now_utc(),
             header: addition_header,
             is_compressed: compressed,
-            content: data.into_bytes(),
+            content: buff,
         }
     }
 
@@ -312,7 +313,6 @@ pub trait BaseHttpRouting {
             HttpVerb::Options => self.options(header.resource, header.header),
             _ => HttpResponse::not_implemented(),
         };
-        let _ = stream.flush();
         let bytes: Vec<u8> = response.into();
         let _ = match stream.write(&bytes) {
             Ok(_) => {

@@ -182,12 +182,14 @@ impl HttpRequest {
                 body_started = true;
             }
         }
-        let decoded = match base64::decode(body_str) {
+        let mut buff = Vec::new();
+        buff.resize(body_str.len() + 3 / (4 * 3), 0);
+        let _ = match base64::decode_config_slice(body_str, base64::URL_SAFE_NO_PAD, &mut buff) {
             Ok(s) => s,
             Err(e) => return Err(Base64DecodeFailed)
         };
 
-        Ok(decoded)
+        Ok(buff)
     }
 }
 
