@@ -59,8 +59,6 @@ impl Into<Vec<u8>> for HttpResponse {
         if !self.content.is_empty() {
             let mut bytes = r.into_bytes();
             let mut body_data = self.content;
-            let str = from_utf8(&body_data).expect("can't format utf8");
-            println!("{}", str);
             bytes.append(&mut body_data);
             bytes
         } else {
@@ -99,7 +97,8 @@ pub enum ProtocolError {
     ConnectionFailed,
     InvalidHttpPath,
     PathRegexError,
-    WriteRequestError
+    WriteRequestError,
+    Base64DecodeFailed,
 }
 
 impl Display for ProtocolError {
@@ -173,6 +172,9 @@ impl HttpResponse {
             "Content-Type".to_string(),
             "application/octet-stream; charset=utf-8".to_string(),
         );
+        addition_header.insert("Content-Transfer-Encoding".to_string(), "base64".to_string());
+
+        let data = base64::encode(data);
         let (status, msg) = HttpStatus::Ok.into();
         HttpResponse {
             status: status,
@@ -180,7 +182,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: addition_header,
             is_compressed: compressed,
-            content: data,
+            content: data.into_bytes(),
         }
     }
 

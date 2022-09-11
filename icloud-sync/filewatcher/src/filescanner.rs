@@ -116,7 +116,9 @@ pub fn scan_ordered<P: AsRef<Path>>(p: P, with_hash: bool) -> Option<Vec<PathFil
     let iter = DirIterator::new(p.as_ref().to_path_buf(), false, with_hash);
     let mut res_vec = Vec::<PathFileEntry>::new();
     for entry in iter {
-        res_vec.push(entry);
+        if !&entry.path.to_path_buf().to_str().unwrap().contains(".DS_Store") {
+            res_vec.push(entry);
+        }
     }
     if res_vec.is_empty() {
         None

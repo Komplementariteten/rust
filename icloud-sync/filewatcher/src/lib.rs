@@ -69,10 +69,6 @@ impl FileWatcher {
         filescanner::scan_ordered(sync_folder, self.gen_hash)
     } */
 
-    pub fn get_cache(&mut self) -> Option<Vec<PathFileEntry>> {
-        return self.handle.get_kv_vector::<PathFileEntry>(CACHE_KEY);
-    }
-
     pub fn ack(&mut self, direntry: PathFileEntry) {
         let cache_lookup: Option<Vec<PathFileEntry>> = self.handle.get_kv_vector(CACHE_KEY);
         if cache_lookup.is_none() {
@@ -88,24 +84,25 @@ impl FileWatcher {
 
     pub fn sync(&self) -> Option<Vec<PathFileEntry>> {
         let sync_folder: String = self.handle.get_kv(WATCH_FOLDER_KEY)?;
-        let sr = match filescanner::scan_ordered(sync_folder, self.gen_hash) {
+        let scanner_result = match filescanner::scan_ordered(sync_folder, self.gen_hash) {
             Some(v) => v,
             None => return None,
         };
         let cache: Option<Vec<PathFileEntry>> = self.handle.get_kv_vector(CACHE_KEY);
         match cache {
-            Some(c) => {
+            Some(cache_entries) => {
                 let mut result = Vec::<PathFileEntry>::new();
-                for entry in &sr {
-                    if entry.modified > c.first().unwrap().modified {
+                for entry in &scanner_result {
+                    if entry.modified > cache_entries.first().unwrap().modified {
                         result.push(entry.clone());
                     }
                 }
-                if c.len() < sr.len() {
-                    let _ = sr
-                        .iter()
-                        .filter(|b| c.contains(b))
-                        .map(|i| result.push(i.clone()));
+                if cache_entries.len() < scanner_result.len() {
+                    for sr in scanner_result {
+                        if !cache_entries.contains(&sr) {
+                            result.push(sr);
+                        }
+                    }
                 }
                 if result.is_empty() {
                     None
@@ -113,7 +110,7 @@ impl FileWatcher {
                     Some(result)
                 }
             }
-            None => Some(sr),
+            None => Some(scanner_result),
         }
     }
 }

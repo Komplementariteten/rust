@@ -1,5 +1,3 @@
-extern crate core;
-
 use crate::srvmiddleware::init_idrive;
 use http::server::{HttpServer, ServerCfg};
 use std::borrow::Borrow;
@@ -26,10 +24,15 @@ fn start_server(port: u32) {
 
 fn run_client(con: &'static str) {
     let mut s = SyncClient::new(con, "/tmp/sync", "");
-    match task::block_on(s.sync()) {
-        Ok(_) => println!("Client ran ok"),
-        Err(e) => println!("client error with {:?}", e)
+    loop {
+        match task::block_on(s.sync()) {
+            Ok(s) => if s == 0 {
+                break;
+            },
+            Err(e) => println!("client error with {:?}", e)
+        }
     }
+    println!("Sync done");
 }
 
 fn main() {

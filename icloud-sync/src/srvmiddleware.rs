@@ -73,7 +73,7 @@ impl BaseHttpRouting for FwInterface {
         // List Files
         if rel_path.starts_with("list") {
             let mut writer = BufWriter::new(Vec::new());
-            let _ = block_on(self.stream_update_as_json(&mut writer));
+            let _ = block_on(self.send_entry_list(&mut writer));
             return HttpResponse::ok_with_json(writer.buffer());
         }
 
@@ -112,10 +112,11 @@ impl BaseHttpRouting for FwInterface {
         };
 
         if rel_path.starts_with("ack") {
-            let result = block_on(self.ack_from_stream(stream.as_slice()));
-            match result {
-                Ok(_) => return HttpResponse::ok(),
-                Err(_) => return HttpResponse::server_error(),
+            let result = block_on(self.ack_transferred(stream.as_slice()));
+
+            return match result {
+                Ok(_) => HttpResponse::ok(),
+                Err(_) => HttpResponse::server_error(),
             }
         }
         return HttpResponse::not_implemented();
@@ -169,22 +170,15 @@ impl FwInterface {
                     base_path: pathBuff,
                     mem: Vec::new(),
                     fw,
-                    transmition_length: 30,
+                    transmition_length: 20,
                     current: 0
                 };
-                fwi.init_cache();
                 Ok(fwi)
             }
             Err(e) => Err(GeneralFwMiddlewareError::try_from(e).unwrap()),
         };
     }
 
-    fn init_cache(&mut self) {
-        self.mem = match self.fw.get_cache() {
-            Some(c) => c,
-            None => Vec::new(),
-        };
-    }
 
     async fn update(&mut self) -> Vec<PathFileEntry> {
         let list = self.fw.sync();
@@ -197,27 +191,42 @@ impl FwInterface {
         }
     }
 
-    pub async fn ack_from_stream<R: Read>(&mut self, read: R) -> Result<u32, Box<dyn Error>> {
+    pub async fn ack_transferred<R: Read>(&mut self, read: R) -> Result<u32, Box<dyn Error>> {
         let entries = from_json_to_entry(read)?;
         let mut ok_count: u32 = 0;
         for entry in entries {
-            self.fw.ack(entry);
+            self.fw.ack(entry.clone());
+            let item_index = self.mem.iter().position(| i| i.id == entry.id).unwrap();
+            self.mem.remove(item_index);
             ok_count += 1;
         }
         Ok(ok_count)
     }
 
-    pub async fn stream_update_as_json<W: Write>(
+    pub async fn send_entry_list<W: Write>(
         &mut self,
         writer: &mut W,
     ) -> serde_json::Result<()> {
         if self.mem.len() > 0 {
+            println!("update from mem");
             let data_slice = self.mem.as_slice();
-            write_to(writer, &data_slice[self.current..self.transmition_length])
+            let length = if data_slice.len() <= self.transmition_length {
+                data_slice.len()
+            } else {
+                self.transmition_length
+            };
+            write_to(writer, &data_slice[self.current..length])
         } else {
+            println!("build up new cache");
             let r = self.update().await;
+            self.mem = r.clone();
             let data_slice = r.as_slice();
-            write_to(writer, &data_slice[self.current..self.transmition_length])
+            let length = if data_slice.len() <= self.transmition_length {
+                data_slice.len()
+            } else {
+                self.transmition_length
+            };
+            write_to(writer, &data_slice[self.current..length])
         }
     }
 }

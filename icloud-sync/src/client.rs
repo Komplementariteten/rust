@@ -2,9 +2,10 @@ use std::str::from_utf8;
 use async_std::fs::{create_dir_all, OpenOptions};
 use async_std::io::WriteExt;
 use async_std::path::Path;
+use serde_json::json;
 use filewatcher::filescanner::PathFileEntry;
 use http::request::Request;
-use crate::client::SyncError::{CreateTempFileError, FailedToGetFileList, FilePathError, ReadFileListError, WriteTempFileError};
+use crate::client::SyncError::{CreateTempFileError, FailedToAcknowledge, FailedToGetFileList, FilePathError, ReadFileListError, WriteTempFileError};
 
 #[derive(Debug)]
 pub enum SyncError {
@@ -13,6 +14,7 @@ pub enum SyncError {
     FilePathError,
     CreateTempFileError,
     WriteTempFileError,
+    FailedToAcknowledge
 }
 
 #[derive(Debug)]
@@ -31,7 +33,7 @@ impl SyncClient {
         }
     }
 
-    fn update_file_list<'a>(&mut self, json:&'a str) -> Result<(), SyncError> {
+    fn reade_file_list<'a>(&mut self, json:&'a str) -> Result<(), SyncError> {
         let pe: Vec<PathFileEntry> = match serde_json::from_str(json) {
             Ok(l) => l,
             Err(e) => {
@@ -43,26 +45,17 @@ impl SyncClient {
         Ok(())
     }
 
-    pub async fn sync(&mut self) -> Result<(), SyncError> {
+    pub async fn sync(&mut self) -> Result<usize, SyncError> {
 
         let list_str = format!("{}list", self.base_url);
-        let list_bytes = match list_str.gets().expect("connection url not valid").json().bytes_async().await {
+        let list_json = match list_str.gets().expect("connection url not valid").json().text_async().await {
             Ok(b) => b,
             Err(_) => return Err(FailedToGetFileList)
         };
-        let str = from_utf8(list_bytes.as_slice()).expect("can't read bytes as utf8");
-        let mut content_str = "".to_string();
-        let mut body_started = false;
-        for line in str.lines() {
-            if body_started {
-                content_str.push_str(line);
-            }
-            if line.len() == 0 {
-                body_started = true;
-            }
-        }
 
-        let _ = self.update_file_list(content_str.as_str())?;
+        let _ = self.reade_file_list(list_json.as_str())?;
+
+        let mut ack_entries = Vec::new();
 
         for file in &self.file_list {
             let file_url = format!("{}file/{}", self.base_url, file.id);
@@ -87,14 +80,40 @@ impl SyncClient {
                     Err(_) => return Err(CreateTempFileError)
                 };
 
-                match fp.write_all(file_bytes.unwrap().as_slice()).await {
+                let bytes = file_bytes.unwrap();
+
+                match fp.write_all(&bytes).await {
                     Ok(_) => (),
                     Err(_) => return Err(WriteTempFileError)
                 };
 
+                let hash = crc32fast::hash(&bytes);
+                if hash == file.crc32 {
+                    println!("hash check ok for {}", file.path.to_str().unwrap());
+                    ack_entries.push(file.clone());
+                } else {
+                    println!("hash does not match for {} {} != {}", file.path.to_str().unwrap(), hash, file.crc32);
+                }
+            } else {
+                println!("Failed to download file {} with {:?}", file.path.to_str().unwrap(), file_bytes.err().unwrap());
             }
+
         }
 
-        Ok(())
+        let json_str = serde_json::to_string(&ack_entries);
+        if json_str.is_ok() {
+            let ack_url = format!("{}ack", self.base_url);
+            let json = json_str.unwrap();
+            println!("Posting to {} => {}", ack_url.as_str(), json.as_str());
+            let req_res = match ack_url.post().expect("failed to send ack request").json().body(json.as_str()).text_async().await {
+                Ok(s) => s,
+                Err(e) => panic!("Failed to ack {:?}", e)
+            };
+            println!("post returned {}", req_res);
+            return Ok(ack_entries.len());
+        } else {
+            panic!("{}", json_str.unwrap());
+        }
+        Err(FailedToAcknowledge)
     }
 }
