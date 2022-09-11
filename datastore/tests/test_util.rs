@@ -3,7 +3,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{write, Display, Formatter};
 use std::fs::remove_dir_all;
 use std::path::PathBuf;
 

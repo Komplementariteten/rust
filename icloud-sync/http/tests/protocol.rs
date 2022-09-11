@@ -1,83 +1,137 @@
 #[cfg(test)]
 mod tests {
+    use http::response::{read_header, BaseHttpRouting, HttpResponse, HttpVerb};
     use std::borrow::BorrowMut;
     use std::collections::HashMap;
     use std::io::{BufReader, BufWriter, Read};
     use std::str::from_utf8;
     use time::OffsetDateTime;
-    use http::protocol::{BaseHttpRouting, HttpResponse, HttpVerb, read_header};
+    use http::request::HttpPath;
 
-    struct TestRouting {
-    }
+    struct TestRouting {}
 
     impl BaseHttpRouting for TestRouting {
-        fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn get(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 1,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
         }
 
-        fn post<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        fn post(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+            stream: Vec<u8>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 2,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
         }
 
-        fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn head(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 3,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
         }
 
-        fn put<R: Read>(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: &mut R) -> HttpResponse {
+        fn put(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+            stream: Vec<u8>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 4,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
-
         }
 
-        fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn delete(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 5,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
-
         }
 
-        fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+        fn options(
+            &mut self,
+            resource: String,
+            aditional_header: HashMap<String, String>,
+        ) -> HttpResponse {
             HttpResponse {
                 header: Default::default(),
                 status: 6,
                 msg: "".to_string(),
                 date: OffsetDateTime::now_utc(),
                 is_compressed: false,
-                content: vec![]
+                content: vec![],
             }
         }
+    }
+
+    #[test]
+    fn test_https_vaild_with_port() {
+        let http_path = HttpPath::try_from("https://localhost:77");
+        assert!(http_path.is_ok());
+        let p = http_path.unwrap();
+        assert!(p.ssl);
+        assert_eq!(p.con, "localhost:77");
+        assert_eq!(p.resource, "");
+    }
+
+    #[test]
+    fn test_http_ip_vaild_without_port() {
+        let http_path = HttpPath::try_from("http://1.1.1.1");
+        assert!(http_path.is_ok());
+        let p = http_path.unwrap();
+        assert_eq!(p.ssl, false);
+        assert_eq!(p.con, "1.1.1.1:80");
+        assert_eq!(p.resource, "");
+    }
+
+    #[test]
+    fn test_http_ip_vaild_with_port_and_path() {
+        let http_path = HttpPath::try_from("http://1.1.1.1:77/hallo");
+        assert!(http_path.is_ok());
+        let p = http_path.unwrap();
+        assert_eq!(p.ssl, false);
+        assert_eq!(p.con, "1.1.1.1:77");
+        assert_eq!(p.resource, "/hallo");
     }
 
     #[test]
@@ -87,7 +141,8 @@ User-Agent: curl/7.64.1
 Host: www.example.com
 Accept-Language: en, mi
 
-<body></body>".as_bytes();
+<body></body>"
+            .as_bytes();
         let mut br = BufReader::new(http);
         let res = read_header(&mut br);
         assert!(res.is_ok());
@@ -102,7 +157,8 @@ User-Agent: curl/7.64.1
 Host: www.example.com
 Accept-Language: en, mi
 
-<body></body>".as_bytes();
+<body></body>"
+            .as_bytes();
         let mut br = BufReader::new(http);
         let res = read_header(&mut br);
         assert!(res.is_ok());
@@ -111,14 +167,14 @@ Accept-Language: en, mi
     }
 
     #[test]
-    fn protocol_response_can_into(){
-        let r = HttpResponse{
+    fn protocol_response_can_into() {
+        let r = HttpResponse {
             date: OffsetDateTime::now_utc(),
             status: 400,
             msg: "Bad Request".to_string(),
             is_compressed: false,
             header: Default::default(),
-            content: vec![]
+            content: vec![],
         };
         let bytes: Vec<u8> = r.into();
         assert!(!bytes.is_empty());

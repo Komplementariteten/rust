@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use std::fs::remove_dir_all;
-    use std::io::{BufReader, BufWriter, Write};
-    use std::str::from_utf8;
     use async_std::task::block_on;
     use dirs::home_dir;
     use http::server::ServerCfg;
+    use std::fs::remove_dir_all;
+    use std::io::{BufReader, BufWriter, Write};
+    use std::str::from_utf8;
 
     /* fn clear_test_files() {
         let hd = home_dir().unwrap().join(MIDDLEWARE_CACHE_DIR);

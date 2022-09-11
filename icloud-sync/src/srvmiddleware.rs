@@ -1,23 +1,23 @@
-use std::collections::HashMap;
+use async_std::task::block_on;
 use dirs::home_dir;
+use filewatcher::filescanner::PathFileEntry;
+use filewatcher::FileWatcher;
+use http::helper::{from_json_to_entry, write_to};
+use http::response::{BaseHttpRouting, HttpResponse};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::read;
 use std::io::{BufWriter, Read, Write};
 use std::mem;
-use std::path::Path;
-use async_std::task::block_on;
-use filewatcher::filescanner::PathFileEntry;
-use filewatcher::FileWatcher;
-use http::helper::{from_json_to_entry, write_to};
-use http::protocol::{BaseHttpRouting, HttpResponse};
+use std::path::{Path, PathBuf};
 
 type GeneralFwMiddlewareError = Box<dyn Error + Sync + Send + 'static>;
 
 #[derive(Debug)]
 pub enum FileWatcherInterfaceErrors {
     IDrivePathDoesNotExist,
-    HomeDirNotFound
+    HomeDirNotFound,
 }
 
 impl Display for FileWatcherInterfaceErrors {
@@ -29,22 +29,36 @@ impl Display for FileWatcherInterfaceErrors {
 #[derive(Debug)]
 pub struct FwInterface {
     fw: FileWatcher,
+    base_path: PathBuf,
     mem: Vec<PathFileEntry>,
+    current: usize,
+    transmition_length: usize
 }
 
-impl Error for FileWatcherInterfaceErrors{}
+impl Error for FileWatcherInterfaceErrors {}
 
 pub const MIDDLEWARE_CACHE_DIR: &str = ".idrive-sync";
 
 pub fn init_idrive() -> Result<FwInterface, GeneralFwMiddlewareError> {
     let hd = match home_dir() {
         Some(d) => d,
-        None => return Err(GeneralFwMiddlewareError::try_from(FileWatcherInterfaceErrors::HomeDirNotFound).unwrap())
+        None => {
+            return Err(GeneralFwMiddlewareError::try_from(
+                FileWatcherInterfaceErrors::HomeDirNotFound,
+            )
+            .unwrap())
+        }
     };
-    let idrive_path = hd.join("Library").join("Mobile Documents").join("com~apple~CloudDocs");
+    let idrive_path = hd
+        .join("Library")
+        .join("Mobile Documents")
+        .join("com~apple~CloudDocs");
     let cache_path = hd.join(MIDDLEWARE_CACHE_DIR);
     if !idrive_path.as_path().exists() {
-        return Err(GeneralFwMiddlewareError::try_from(FileWatcherInterfaceErrors::IDrivePathDoesNotExist).unwrap());
+        return Err(GeneralFwMiddlewareError::try_from(
+            FileWatcherInterfaceErrors::IDrivePathDoesNotExist,
+        )
+        .unwrap());
     }
     FwInterface::new(idrive_path, cache_path)
 }
@@ -53,14 +67,14 @@ impl BaseHttpRouting for FwInterface {
     fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
         let rel_path = match resource.strip_prefix("/") {
             Some(s) => s,
-            None => return HttpResponse::bad_request()
+            None => return HttpResponse::bad_request(),
         };
 
         // List Files
         if rel_path.starts_with("list") {
             let mut writer = BufWriter::new(Vec::new());
             let _ = block_on(self.stream_update_as_json(&mut writer));
-            return HttpResponse::ok_with_json(writer.get_ref().to_vec());
+            return HttpResponse::ok_with_json(writer.buffer());
         }
 
         // Download File
@@ -68,79 +82,107 @@ impl BaseHttpRouting for FwInterface {
             let file_id_str = rel_path.strip_prefix("file/").unwrap();
             let file_id = match file_id_str.parse::<u32>() {
                 Ok(id) => id,
-                Err(_) => return HttpResponse::not_found()
+                Err(_) => return HttpResponse::not_found(),
             };
-            let files = match self.mem.iter().find(| &entry | entry.id == file_id ) {
+            let files = match self.mem.iter().find(|&entry| entry.id == file_id) {
                 Some(e) => e.clone(),
                 None => return HttpResponse::not_found(),
             };
 
-            let data = match read(files.path) {
+            let file_path = self.base_path.join(files.path);
+            println!("Requested File {}", file_path.to_str().unwrap());
+            let data = match read(file_path) {
                 Ok(d) => d,
-                Err(_) => return HttpResponse::server_error()
+                Err(_) => return HttpResponse::server_error(),
             };
             return HttpResponse::ok_bin(data, false);
         }
         return HttpResponse::not_found();
     }
 
-    fn post(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse {
+    fn post(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+        stream: Vec<u8>,
+    ) -> HttpResponse {
         let rel_path = match resource.strip_prefix("/") {
             Some(s) => s,
-            None => return HttpResponse::bad_request()
+            None => return HttpResponse::bad_request(),
         };
 
         if rel_path.starts_with("ack") {
             let result = block_on(self.ack_from_stream(stream.as_slice()));
             match result {
                 Ok(_) => return HttpResponse::ok(),
-                Err(_) => return HttpResponse::server_error()
+                Err(_) => return HttpResponse::server_error(),
             }
         }
-        return HttpResponse::not_implemented()
-
+        return HttpResponse::not_implemented();
     }
 
-    fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+    fn head(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+    ) -> HttpResponse {
         HttpResponse::ok()
     }
 
-    fn put(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse {
+    fn put(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+        stream: Vec<u8>,
+    ) -> HttpResponse {
         HttpResponse::not_implemented()
     }
 
-    fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+    fn delete(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+    ) -> HttpResponse {
         HttpResponse::not_implemented()
     }
 
-    fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse {
+    fn options(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+    ) -> HttpResponse {
         HttpResponse::not_implemented()
     }
 }
 
-unsafe impl Send for FwInterface {
-}
+unsafe impl Send for FwInterface {}
 
 impl FwInterface {
-
-    pub fn new<P: AsRef<Path>>(folder:P, cache: P) -> Result<FwInterface, GeneralFwMiddlewareError> {
+    pub fn new<P: AsRef<Path>>(
+        folder: P,
+        cache: P,
+    ) -> Result<FwInterface, GeneralFwMiddlewareError> {
+        let pathBuff = folder.as_ref().to_path_buf();
         return match FileWatcher::new(folder, cache, true) {
             Ok(fw) => {
-                let mut fwi = FwInterface{
+                let mut fwi = FwInterface {
+                    base_path: pathBuff,
                     mem: Vec::new(),
-                    fw: fw
+                    fw,
+                    transmition_length: 30,
+                    current: 0
                 };
                 fwi.init_cache();
                 Ok(fwi)
-            },
-            Err(e) => Err(GeneralFwMiddlewareError::try_from(e).unwrap())
+            }
+            Err(e) => Err(GeneralFwMiddlewareError::try_from(e).unwrap()),
         };
     }
 
     fn init_cache(&mut self) {
-        self.mem = match self.fw.get_cache(){
+        self.mem = match self.fw.get_cache() {
             Some(c) => c,
-            None => Vec::new()
+            None => Vec::new(),
         };
     }
 
@@ -157,7 +199,7 @@ impl FwInterface {
 
     pub async fn ack_from_stream<R: Read>(&mut self, read: R) -> Result<u32, Box<dyn Error>> {
         let entries = from_json_to_entry(read)?;
-        let mut ok_count:u32 = 0;
+        let mut ok_count: u32 = 0;
         for entry in entries {
             self.fw.ack(entry);
             ok_count += 1;
@@ -165,12 +207,17 @@ impl FwInterface {
         Ok(ok_count)
     }
 
-    pub async fn stream_update_as_json<W: Write>(&mut self, writer: &mut W) -> serde_json::Result<()> {
+    pub async fn stream_update_as_json<W: Write>(
+        &mut self,
+        writer: &mut W,
+    ) -> serde_json::Result<()> {
         if self.mem.len() > 0 {
-            write_to(writer, self.mem.clone())
+            let data_slice = self.mem.as_slice();
+            write_to(writer, &data_slice[self.current..self.transmition_length])
         } else {
             let r = self.update().await;
-            write_to(writer, r)
+            let data_slice = r.as_slice();
+            write_to(writer, &data_slice[self.current..self.transmition_length])
         }
     }
 }

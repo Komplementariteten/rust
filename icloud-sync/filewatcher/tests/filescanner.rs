@@ -11,7 +11,11 @@ mod tests {
     }
     #[test]
     fn filescanner_gets_all_idrive_files() {
-        let r = scan_ordered("/Users/me/Library/Mobile Documents/com~apple~CloudDocs/Dokumente", true).unwrap();
+        let r = scan_ordered(
+            "/Users/me/Library/Mobile Documents/com~apple~CloudDocs/Dokumente",
+            true,
+        )
+        .unwrap();
         println!("{}", &r.len());
         for file in r {
             println!("File: {}", file.path.to_str().unwrap());

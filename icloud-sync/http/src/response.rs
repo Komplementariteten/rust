@@ -1,10 +1,15 @@
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
+use std::net::{Shutdown, TcpStream};
 use std::str::from_utf8;
-use time::OffsetDateTime;
-use time::format_description::well_known::Rfc2822;
 
+use regex::Regex;
+use time::format_description::well_known::Rfc2822;
+use time::OffsetDateTime;
+
+use crate::response::ProtocolError::{InvalidHeader, InvalidHttpPath};
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum HttpVerb {
@@ -16,7 +21,7 @@ pub enum HttpVerb {
     Trace,
     Delete,
     Connect,
-    NotFound
+    NotFound,
 }
 
 #[derive(Debug)]
@@ -26,13 +31,13 @@ pub struct HttpResponse {
     pub date: OffsetDateTime,
     pub header: HashMap<String, String>,
     pub is_compressed: bool,
-    pub content: Vec<u8>
+    pub content: Vec<u8>,
 }
 
 macro_rules! format_header {
     ($n: tt, $v: tt) => {
         format!("{}: {}\n", $n, $v)
-    }
+    };
 }
 
 impl Into<Vec<u8>> for HttpResponse {
@@ -41,7 +46,7 @@ impl Into<Vec<u8>> for HttpResponse {
         r.push_str(format!("HTTP/1.1 {} {}\n", self.status, self.msg).as_str());
         let date_str = match self.date.format(&Rfc2822) {
             Ok(d) => d,
-            Err(_) => "0.0.0".to_string()
+            Err(_) => "0.0.0".to_string(),
         };
 
         r.push_str(format_header!("Date", date_str).as_str());
@@ -53,7 +58,10 @@ impl Into<Vec<u8>> for HttpResponse {
         r.push_str("\n");
         if !self.content.is_empty() {
             let mut bytes = r.into_bytes();
-            bytes.append(self.content.clone().as_mut());
+            let mut body_data = self.content;
+            let str = from_utf8(&body_data).expect("can't format utf8");
+            println!("{}", str);
+            bytes.append(&mut body_data);
             bytes
         } else {
             r.into_bytes()
@@ -86,8 +94,21 @@ impl Into<(u16, String)> for HttpStatus {
 pub enum ProtocolError {
     NotInitialized,
     HttpVersionNotSupported,
-    WriteResponseError
+    WriteResponseError,
+    InvalidHeader,
+    ConnectionFailed,
+    InvalidHttpPath,
+    PathRegexError,
+    WriteRequestError
 }
+
+impl Display for ProtocolError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Error for ProtocolError {}
 
 impl From<String> for HttpVerb {
     fn from(name: String) -> Self {
@@ -99,53 +120,59 @@ impl From<String> for HttpVerb {
             "options" => HttpVerb::Options,
             "trace" => HttpVerb::Trace,
             "delete" => HttpVerb::Delete,
-            _ => HttpVerb::NotFound
+            _ => HttpVerb::NotFound,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct HttpHeader {
+pub struct HttpHeaders {
     pub verb: HttpVerb,
     pub resource: String,
     pub http_version: String,
-    pub header: HashMap<String, String>
+    pub header: HashMap<String, String>,
 }
 
-impl TryFrom<HttpInitializer> for HttpHeader {
+impl TryFrom<HttpInitializer> for HttpHeaders {
     type Error = ProtocolError;
 
     fn try_from(value: HttpInitializer) -> Result<Self, Self::Error> {
         if value.verb.is_none() || value.resource.is_none() {
             return Err(ProtocolError::NotInitialized);
         }
-        Ok(HttpHeader {
+        Ok(HttpHeaders {
             verb: value.verb.unwrap(),
             resource: value.resource.unwrap().to_string().to_lowercase(),
             http_version: value.http_version.unwrap().to_string().to_lowercase(),
-            header: value.header
+            header: value.header,
         })
     }
 }
 
 impl HttpResponse {
-    pub fn ok_with_json(json: Vec<u8>) -> HttpResponse {
+    pub fn ok_with_json(json: &[u8]) -> HttpResponse {
         let mut addition_header: HashMap<String, String> = Default::default();
-        addition_header.insert("Content-Type".to_string(), "application/json; charset=utf-8".to_string());
+        addition_header.insert(
+            "Content-Type".to_string(),
+            "application/json; charset=utf-8".to_string(),
+        );
         let (status, msg) = HttpStatus::Ok.into();
+
         HttpResponse {
             status: status,
             msg: msg,
             date: OffsetDateTime::now_utc(),
             header: addition_header,
             is_compressed: false,
-            content: json
+            content: json.to_vec(),
         }
-
     }
     pub fn ok_bin(data: Vec<u8>, compressed: bool) -> HttpResponse {
         let mut addition_header: HashMap<String, String> = Default::default();
-        addition_header.insert("Content-Type".to_string(), "application/octet-stream; charset=utf-8".to_string());
+        addition_header.insert(
+            "Content-Type".to_string(),
+            "application/octet-stream; charset=utf-8".to_string(),
+        );
         let (status, msg) = HttpStatus::Ok.into();
         HttpResponse {
             status: status,
@@ -153,7 +180,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: addition_header,
             is_compressed: compressed,
-            content: data
+            content: data,
         }
     }
 
@@ -165,7 +192,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: msg.into_bytes()
+            content: msg.into_bytes(),
         }
     }
     pub fn server_error_with_text(body: &[u8]) -> HttpResponse {
@@ -176,7 +203,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: body.to_vec()
+            content: body.to_vec(),
         }
     }
     pub fn not_found() -> HttpResponse {
@@ -187,7 +214,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: vec![]
+            content: vec![],
         }
     }
     pub fn bad_request() -> HttpResponse {
@@ -198,7 +225,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: vec![]
+            content: vec![],
         }
     }
     pub fn not_implemented() -> HttpResponse {
@@ -209,7 +236,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: vec![]
+            content: vec![],
         }
     }
     pub fn ok() -> HttpResponse {
@@ -220,7 +247,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: Default::default(),
             is_compressed: false,
-            content: vec![]
+            content: vec![],
         }
     }
 }
@@ -230,42 +257,67 @@ struct HttpInitializer {
     verb: Option<HttpVerb>,
     resource: Option<String>,
     http_version: Option<String>,
-    header: HashMap<String, String>
+    header: HashMap<String, String>,
 }
 
 pub trait BaseHttpRouting {
     fn get(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn post(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse;
-    fn head(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn put(&mut self, resource: String, aditional_header: HashMap<String, String>, stream: Vec<u8>) -> HttpResponse;
-    fn delete(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn options(&mut self, resource: String, aditional_header: HashMap<String, String>) -> HttpResponse;
-    fn error<W: Write>(&self, stream: &mut W, status: HttpResponse) -> Result<(), ProtocolError>  {
+    fn post(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+        stream: Vec<u8>,
+    ) -> HttpResponse;
+    fn head(&mut self, resource: String, aditional_header: HashMap<String, String>)
+        -> HttpResponse;
+    fn put(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+        stream: Vec<u8>,
+    ) -> HttpResponse;
+    fn delete(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+    ) -> HttpResponse;
+    fn options(
+        &mut self,
+        resource: String,
+        aditional_header: HashMap<String, String>,
+    ) -> HttpResponse;
+    fn error<W: Write>(&self, stream: &mut W, status: HttpResponse) -> Result<(), ProtocolError> {
         let bytes: Vec<u8> = status.into();
         let _ = match stream.write(&bytes) {
             Ok(_) => {
                 let _ = stream.flush();
-                return Ok(())
-            },
-            Err(_) => return Err(ProtocolError::WriteResponseError)
+                return Ok(());
+            }
+            Err(_) => return Err(ProtocolError::WriteResponseError),
         };
     }
-    fn execute(&mut self, header: HttpHeader, stream: &mut TcpStream, body:Vec<u8>) -> Result<(), ProtocolError> {
+    fn execute(
+        &mut self,
+        header: HttpHeaders,
+        stream: &mut TcpStream,
+        body: Vec<u8>,
+    ) -> Result<(), ProtocolError> {
         let response = match header.verb {
             HttpVerb::Get => self.get(header.resource, header.header),
             HttpVerb::Post => self.post(header.resource, header.header, body),
             HttpVerb::Head => self.head(header.resource, header.header),
             HttpVerb::Put => self.put(header.resource, header.header, body),
             HttpVerb::Options => self.options(header.resource, header.header),
-            _ => HttpResponse::not_implemented()
+            _ => HttpResponse::not_implemented(),
         };
+        let _ = stream.flush();
         let bytes: Vec<u8> = response.into();
         let _ = match stream.write(&bytes) {
             Ok(_) => {
-                let _ = stream.flush();
-                return Ok(())
-            },
-            Err(_) => return Err(ProtocolError::WriteResponseError)
+                let _ = stream.shutdown(Shutdown::Write);
+                return Ok(());
+            }
+            Err(_) => return Err(ProtocolError::WriteResponseError),
         };
     }
 }
@@ -281,7 +333,7 @@ fn update_initializer(i: &mut HttpInitializer, header_line: String) {
         if parts.len() == 3 {
             i.http_version = match parts.pop() {
                 None => None,
-                Some(s) => Some(s.to_string())
+                Some(s) => Some(s.to_string()),
             };
         } else {
             i.http_version = Some("not-set".to_string());
@@ -289,11 +341,11 @@ fn update_initializer(i: &mut HttpInitializer, header_line: String) {
 
         i.resource = match parts.pop() {
             None => None,
-            Some(s) => Some(s.to_string())
+            Some(s) => Some(s.to_string()),
         };
         i.verb = match parts.pop() {
             None => Some(HttpVerb::NotFound),
-            Some(v) => Some(HttpVerb::from(v.to_string()))
+            Some(v) => Some(HttpVerb::from(v.to_string())),
         };
     } else {
         let mut parts = header_line.split(":").collect::<Vec<&str>>();
@@ -316,12 +368,12 @@ fn update_initializer(i: &mut HttpInitializer, header_line: String) {
     }
 } */
 
-pub fn read_http (stream: &mut TcpStream) -> Result<(HttpHeader, Vec<u8>), ProtocolError> {
+pub fn read_http(stream: &mut TcpStream) -> Result<(HttpHeaders, Vec<u8>), ProtocolError> {
     let mut initalizer = HttpInitializer {
         verb: None,
         resource: None,
         http_version: None,
-        header: HashMap::new()
+        header: HashMap::new(),
     };
     let mut http_str = "".to_string();
     let mut body = false;
@@ -329,8 +381,8 @@ pub fn read_http (stream: &mut TcpStream) -> Result<(HttpHeader, Vec<u8>), Proto
     let mut buff: [u8; 300] = [0; 300];
     loop {
         let readen = match stream.read(&mut buff) {
-          Ok(s) => s,
-            Err(_) => 0
+            Ok(s) => s,
+            Err(_) => 0,
         };
         if let Ok(str) = from_utf8(&buff[..readen]) {
             http_str.push_str(str);
@@ -350,26 +402,26 @@ pub fn read_http (stream: &mut TcpStream) -> Result<(HttpHeader, Vec<u8>), Proto
         }
         if !body {
             update_initializer(&mut initalizer, line.to_string());
-         }
+        }
     }
-    let header = HttpHeader::try_from(initalizer)?;
+    let header = HttpHeaders::try_from(initalizer)?;
     Ok((header, body_str.into_bytes()))
 }
 
-pub fn read_header<R: Read> (stream: &mut R) -> Result<HttpHeader, ProtocolError>{
+pub fn read_header<R: Read>(stream: &mut R) -> Result<HttpHeaders, ProtocolError> {
     let br = BufReader::new(stream);
     let mut initalizer = HttpInitializer {
         verb: None,
         resource: None,
         http_version: None,
-        header: HashMap::new()
+        header: HashMap::new(),
     };
 
-    for line in br.lines().map(| l | l.unwrap()) {
+    for line in br.lines().map(|l| l.unwrap()) {
         if line.is_empty() {
             break;
         }
         update_initializer(&mut initalizer, line);
     }
-    HttpHeader::try_from(initalizer)
+    HttpHeaders::try_from(initalizer)
 }

@@ -45,11 +45,11 @@ mod tests {
         assert_eq!(m_res.is_ok(), true);
         let mut m = m_res.unwrap();
         m.set_kv_vector(test_key, value1.clone());
-        let v1:Option<Vec<i32>> = m.get_kv_vector(test_key);
+        let v1: Option<Vec<i32>> = m.get_kv_vector(test_key);
         assert!(v1.is_some());
         assert_eq!(v1.unwrap(), value1);
         m.set_kv_vector(test_key, value2.clone());
-        let v2:Option<Vec<i32>> = m.get_kv_vector(test_key);
+        let v2: Option<Vec<i32>> = m.get_kv_vector(test_key);
         assert!(v2.is_some());
         assert_eq!(v2.unwrap(), value2);
         drop(m);
@@ -67,11 +67,11 @@ mod tests {
         assert_eq!(m_res.is_ok(), true);
         let mut m = m_res.unwrap();
         m.set_kv(test_key, value1.to_string());
-        let v1:Option<String> = m.get_kv(test_key);
+        let v1: Option<String> = m.get_kv(test_key);
         assert!(v1.is_some());
         assert_eq!(v1.unwrap(), value1);
         m.set_kv(test_key, value2);
-        let v2:Option<i32> = m.get_kv(test_key);
+        let v2: Option<i32> = m.get_kv(test_key);
         assert!(v2.is_some());
         assert_eq!(v2.unwrap(), value2);
         cleanup_test(Path::new(base_dir).to_path_buf());

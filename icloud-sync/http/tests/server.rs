@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use http::server::{HttpServer, HttpServerReturn, ServerCfg};
     use std::thread::sleep;
     use std::time::Duration;
-    use http::server::{HttpServer, HttpServerReturn, ServerCfg};
 
     /* #[test]
     pub fn server_start_and_stops() {

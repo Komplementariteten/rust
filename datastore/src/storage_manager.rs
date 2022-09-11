@@ -149,7 +149,7 @@ impl StorageManager {
         if lock_path.exists() {
             match remove_file(lock_path) {
                 Ok(_) => (),
-                Err(_) => return Err(StorageManagerError::ManagerAlreadyExists)
+                Err(_) => return Err(StorageManagerError::ManagerAlreadyExists),
             }
         } else {
             let _ = match File::create(lock_path) {

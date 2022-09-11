@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir_all, File, OpenOptions, remove_dir_all};
+    use filewatcher::FileWatcher;
+    use std::fs::{create_dir_all, remove_dir_all, File, OpenOptions};
     use std::io::Write;
     use std::path::Path;
-    use filewatcher::FileWatcher;
 
     fn clear_test_files<P: AsRef<Path>>(test_folder: P, cache_folder: P) {
         let _ = remove_dir_all(test_folder);
@@ -18,14 +18,21 @@ mod tests {
         let _ = File::create(&test_folder.as_ref().join("4"));
     }
 
-    fn update_testfiles<P: AsRef<Path>>(test_folder:P) {
-        let mut f = match OpenOptions::new().truncate(true).write(true).open(&test_folder.as_ref().join("3")){
+    fn update_testfiles<P: AsRef<Path>>(test_folder: P) {
+        let mut f = match OpenOptions::new()
+            .truncate(true)
+            .write(true)
+            .open(&test_folder.as_ref().join("3"))
+        {
             Ok(fd) => fd,
-            Err(e) => panic!("failed to write file with {}", e.to_string())
+            Err(e) => panic!("failed to write file with {}", e.to_string()),
         };
         let rr = f.write_all(b"123");
         if rr.is_err() {
-            panic!("failed to write file with {}", rr.err().unwrap().to_string());
+            panic!(
+                "failed to write file with {}",
+                rr.err().unwrap().to_string()
+            );
         }
     }
 
