@@ -1,5 +1,5 @@
 use std::str::from_utf8;
-use async_std::fs::{create_dir_all, OpenOptions};
+use async_std::fs::{copy, create_dir_all, OpenOptions, remove_file};
 use async_std::io::WriteExt;
 use async_std::path::Path;
 use serde_json::json;
@@ -21,6 +21,7 @@ pub enum SyncError {
 pub struct SyncClient {
     base_url: &'static str,
     tmp_folder: &'static str,
+    output_folder: &'static str,
     file_list: Vec<PathFileEntry>
 }
 
@@ -29,6 +30,7 @@ impl SyncClient {
         SyncClient {
             base_url: con,
             tmp_folder,
+            output_folder,
             file_list: Vec::new()
         }
     }
@@ -67,15 +69,16 @@ impl SyncClient {
                     Some(p) => p,
                     None => return Err(FilePathError)
                 };
-                let out_path = Path::new(self.tmp_folder).join(path_str);
-                println!("Writing {}:{}", out_path.parent().unwrap().to_str().unwrap(), out_path.file_name().unwrap().to_str().unwrap());
+                let tmp_path = Path::new(self.tmp_folder).join(path_str);
+                let out_path = Path::new(self.output_folder).join(path_str);
+                println!("Writing {}:{}", tmp_path.parent().unwrap().to_str().unwrap(), tmp_path.file_name().unwrap().to_str().unwrap());
 
-                match create_dir_all(out_path.parent().unwrap()).await {
+                match create_dir_all(tmp_path.parent().unwrap()).await {
                     Ok(_) => (),
                     Err(_) => panic!("can't create parent directories")
                 };
 
-                let mut fp = match OpenOptions::new().write(true).truncate(true).create(true).open(out_path).await {
+                let mut fp = match OpenOptions::new().write(true).truncate(true).create(true).open(tmp_path.clone()).await {
                     Ok(f) => f,
                     Err(_) => return Err(CreateTempFileError)
                 };
@@ -83,13 +86,30 @@ impl SyncClient {
                 let bytes = file_bytes.unwrap();
 
                 match fp.write_all(&bytes).await {
-                    Ok(_) => (),
+                    Ok(_) => {
+                        fp.flush();
+                        match create_dir_all(out_path.parent().unwrap()).await {
+                            Ok(_) => (),
+                            Err(_) => panic!("can't create parent directories")
+                        };
+                        match copy(tmp_path.clone(), out_path).await {
+                            Ok(_) => (),
+                            Err(_) => panic!("failed to copy to target")
+                        }
+                        match remove_file(tmp_path).await {
+                            Ok(_) => (),
+                            Err(_) => panic!("failed to remove tmp file")
+                        };
+                    },
                     Err(_) => return Err(WriteTempFileError)
                 };
+
+
 
                 let hash = crc32fast::hash(&bytes);
                 if hash == file.crc32 {
                     println!("hash check ok for {}", file.path.to_str().unwrap());
+
                     ack_entries.push(file.clone());
                 } else {
                     println!("hash does not match for {} {} != {}", file.path.to_str().unwrap(), hash, file.crc32);

@@ -23,7 +23,7 @@ fn start_server(port: u32) {
 }
 
 fn run_client(con: &'static str) {
-    let mut s = SyncClient::new(con, "/tmp/sync", "");
+    let mut s = SyncClient::new(con, "/tmp/sync", "/Users/me/tmp");
     loop {
         match task::block_on(s.sync()) {
             Ok(s) => if s == 0 {

@@ -51,8 +51,7 @@ pub fn init_idrive() -> Result<FwInterface, GeneralFwMiddlewareError> {
     };
     let idrive_path = hd
         .join("Library")
-        .join("Mobile Documents")
-        .join("com~apple~CloudDocs");
+        .join("Mobile Documents");
     let cache_path = hd.join(MIDDLEWARE_CACHE_DIR);
     if !idrive_path.as_path().exists() {
         return Err(GeneralFwMiddlewareError::try_from(
@@ -208,7 +207,7 @@ impl FwInterface {
         writer: &mut W,
     ) -> serde_json::Result<()> {
         if self.mem.len() > 0 {
-            println!("update from mem");
+            println!("update from mem {} remaining", self.mem.len());
             let data_slice = self.mem.as_slice();
             let length = if data_slice.len() <= self.transmition_length {
                 data_slice.len()
