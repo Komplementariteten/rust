@@ -30,7 +30,7 @@ impl HttpPath {
     }
 }
 
-const HTTP_PATH_REGEX: &str = r"^(?P<http>http{1}s?)://(?P<domain>[a-zA-Z.\-1-9]+):?(?P<port>[0-9]*)(?P<path>[a-zA-Z=?.%&$§_/\-0-9]*)$";
+const HTTP_PATH_REGEX: &str = r"^(?P<http>http{1}s?)://(?P<domain>[a-zA-Z.\-0-9]+):?(?P<port>[0-9]*)(?P<path>[a-zA-Z=?.%&$§_/\-0-9]*)$";
 
 impl TryFrom<&str> for HttpPath {
     type Error = ProtocolError;

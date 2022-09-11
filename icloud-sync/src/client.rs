@@ -19,18 +19,18 @@ pub enum SyncError {
 
 #[derive(Debug)]
 pub struct SyncClient {
-    base_url: &'static str,
-    tmp_folder: &'static str,
-    output_folder: &'static str,
+    base_url: String,
+    tmp_folder: String,
+    output_folder: String,
     file_list: Vec<PathFileEntry>
 }
 
 impl SyncClient {
-    pub fn new(con: &'static str, tmp_folder: &'static str, output_folder: &'static str) -> SyncClient {
+    pub fn new(con: String, tmp_folder: String, output_folder: String) -> SyncClient {
         SyncClient {
             base_url: con,
-            tmp_folder,
-            output_folder,
+            tmp_folder: tmp_folder,
+            output_folder: output_folder,
             file_list: Vec::new()
         }
     }
@@ -49,7 +49,7 @@ impl SyncClient {
 
     pub async fn sync(&mut self) -> Result<usize, SyncError> {
 
-        let list_str = format!("{}list", self.base_url);
+        let list_str = format!("{}list", self.base_url.as_str());
         let list_json = match list_str.gets().expect("connection url not valid").json().text_async().await {
             Ok(b) => b,
             Err(_) => return Err(FailedToGetFileList)
@@ -69,8 +69,8 @@ impl SyncClient {
                     Some(p) => p,
                     None => return Err(FilePathError)
                 };
-                let tmp_path = Path::new(self.tmp_folder).join(path_str);
-                let out_path = Path::new(self.output_folder).join(path_str);
+                let tmp_path = Path::new(self.tmp_folder.as_str()).join(path_str);
+                let out_path = Path::new(self.output_folder.as_str()).join(path_str);
                 println!("Writing {}:{}", tmp_path.parent().unwrap().to_str().unwrap(), tmp_path.file_name().unwrap().to_str().unwrap());
 
                 match create_dir_all(tmp_path.parent().unwrap()).await {

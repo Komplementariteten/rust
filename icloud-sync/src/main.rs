@@ -22,8 +22,8 @@ fn start_server(port: u32) {
     println!("Sever ended with {:?}", server_result);
 }
 
-fn run_client(con: &'static str) {
-    let mut s = SyncClient::new(con, "/tmp/sync", "/Users/me/tmp");
+fn run_client(con: String, out_folder: String, tmp_folder: String) {
+    let mut s = SyncClient::new(con, tmp_folder, out_folder);
     loop {
         match task::block_on(s.sync()) {
             Ok(s) => if s == 0 {
@@ -45,7 +45,15 @@ fn main() {
     if args.iter().any(|s| s == "--server") {
         start_server(srv_port);
     } else if args.iter().any(| s | s == "--client") {
-        run_client("http://localhost:8088/");
+        if args.len() != 5 {
+            let cmd_name = args.get(0).unwrap().to_string();
+            println!("{} --client http://example:port /target/folder /tmp/folder", cmd_name);
+        } else {
+            let con = args.get(2).unwrap().to_string();
+            let out_folder = args.get(3).unwrap().to_string();
+            let tmp_folder = args.get(4).unwrap().to_string();
+            run_client(con, out_folder, tmp_folder);
+        }
     }
 
 }
