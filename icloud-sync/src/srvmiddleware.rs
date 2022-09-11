@@ -169,7 +169,7 @@ impl FwInterface {
                     base_path: pathBuff,
                     mem: Vec::new(),
                     fw,
-                    transmition_length: 10,
+                    transmition_length: 25,
                     current: 0
                 };
                 Ok(fwi)

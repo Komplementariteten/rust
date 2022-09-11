@@ -10,7 +10,6 @@ use std::time::SystemTime;
 pub struct PathFileEntry {
     pub path: PathBuf,
     pub size: u64,
-    pub created: SystemTime,
     pub modified: SystemTime,
     pub crc32: u32,
     pub id: u32,
@@ -91,7 +90,6 @@ impl DirIterator {
                 modified: m
                     .modified()
                     .expect("modified-time not supported on your os"),
-                created: m.created().expect("created-time not supported on your os"),
             })
         }
     }

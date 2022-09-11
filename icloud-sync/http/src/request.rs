@@ -1,17 +1,10 @@
-use std::future::Future;
-use std::io::{BufReader, Read, Write};
-use crate::response::ProtocolError::{Base64DecodeFailed, ConnectionFailed, InvalidHeader, InvalidHttpPath};
+use std::io::{ Read, Write};
+use crate::response::ProtocolError::{Base64DecodeFailed, InvalidHeader, InvalidHttpPath, ReadContentError};
 use std::net::{Shutdown, TcpStream};
-use std::pin::Pin;
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
-use std::{mem, thread};
-use async_std::fs::read_to_string;
-use async_std::{task, task_local};
+use async_std::task;
 use async_std::task::JoinHandle;
 use regex::Regex;
-use serde_json::from_str;
 use crate::response::ProtocolError;
 
 
@@ -86,7 +79,7 @@ impl HttpRequest {
         self
     }
     pub fn body(mut self, content: &str) -> HttpRequest {
-        let body = format!("\n\n{}", content);
+        let body = format!("\r\n\r\n{}", content);
         self.req.push_str(body.as_str());
         self
     }
@@ -182,14 +175,19 @@ impl HttpRequest {
                 body_started = true;
             }
         }
-        let mut buff = Vec::new();
-        buff.resize(body_str.len() + 3 / (4 * 3), 0);
-        let _ = match base64::decode_config_slice(body_str, base64::URL_SAFE_NO_PAD, &mut buff) {
-            Ok(s) => s,
-            Err(e) => return Err(Base64DecodeFailed)
-        };
+        if body_str.len() > 20 {
+            println!("Body: {}!", &body_str[body_str.len()-10..]);
+            let buff = match base64::decode(&body_str) {
+                Ok(s) => s,
+                Err(e) => {
+                    println!("Decoding error: {:?} for {}", e, body_str);
+                    return Err(Base64DecodeFailed)
+                }
+            };
 
-        Ok(buff)
+            return Ok(buff);
+        }
+        Err(ReadContentError)
     }
 }
 
@@ -207,7 +205,7 @@ impl Request for &str {
         };
 
         Ok(HttpRequest {
-            req: format!("get {}\nUser-Agent: icloud-sync\n", path.resource),
+            req: format!("get {}\r\nUser-Agent: icloud-sync\r\n", path.resource),
             path: path
         })
     }
@@ -219,7 +217,7 @@ impl Request for &str {
         };
 
         Ok(HttpRequest {
-            req: format!("post {}\nUser-Agent: icloud-sync\n", path.resource),
+            req: format!("post {}\r\nUser-Agent: icloud-sync\r\n", path.resource),
             path: path
         })
     }
@@ -231,7 +229,7 @@ impl Request for &str {
         };
 
         Ok(HttpRequest {
-            req: format!("delete {}\nUser-Agent: icloud-sync\n", path.resource),
+            req: format!("delete {}\r\nUser-Agent: icloud-sync\r\n", path.resource),
             path: path
         })
     }

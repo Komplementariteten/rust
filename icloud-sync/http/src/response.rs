@@ -36,14 +36,14 @@ pub struct HttpResponse {
 
 macro_rules! format_header {
     ($n: tt, $v: tt) => {
-        format!("{}: {}\n", $n, $v)
+        format!("{}: {}\r\n", $n, $v)
     };
 }
 
 impl Into<Vec<u8>> for HttpResponse {
     fn into(self) -> Vec<u8> {
         let mut r = String::new();
-        r.push_str(format!("HTTP/1.1 {} {}\n", self.status, self.msg).as_str());
+        r.push_str(format!("HTTP/1.1 {} {}\r\n", self.status, self.msg).as_str());
         let date_str = match self.date.format(&Rfc2822) {
             Ok(d) => d,
             Err(_) => "0.0.0".to_string(),
@@ -55,7 +55,7 @@ impl Into<Vec<u8>> for HttpResponse {
         for (key, value) in self.header {
             r.push_str(format_header!(key, value).as_str());
         }
-        r.push_str("\n");
+        r.push_str("\r\n");
         if !self.content.is_empty() {
             let mut bytes = r.into_bytes();
             let mut body_data = self.content;
@@ -99,6 +99,7 @@ pub enum ProtocolError {
     PathRegexError,
     WriteRequestError,
     Base64DecodeFailed,
+    ReadContentError
 }
 
 impl Display for ProtocolError {
@@ -173,9 +174,7 @@ impl HttpResponse {
             "application/octet-stream; charset=utf-8".to_string(),
         );
         addition_header.insert("Content-Transfer-Encoding".to_string(), "base64".to_string());
-        let mut buff = Vec::new();
-        buff.resize(data.len() * 4 / 3 + 4, 0);
-        let _ = base64::encode_config_slice(data, base64::URL_SAFE_NO_PAD, &mut buff);
+        let buff = base64::encode(data);
         let (status, msg) = HttpStatus::Ok.into();
         HttpResponse {
             status,
@@ -183,7 +182,7 @@ impl HttpResponse {
             date: OffsetDateTime::now_utc(),
             header: addition_header,
             is_compressed: compressed,
-            content: buff,
+            content: buff.into_bytes(),
         }
     }
 
