@@ -1,4 +1,4 @@
-use std::io::{ Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use crate::response::ProtocolError::{Base64DecodeFailed, InvalidHeader, InvalidHttpPath, ReadContentError};
 use std::net::{Shutdown, TcpStream};
 use std::str::from_utf8;
@@ -119,15 +119,21 @@ impl HttpRequest {
             }
         }
 
-        let utf8_str = match from_utf8(data.as_slice()) {
+        let breader = BufReader::new(data.as_slice());
+        /*  let utf8_str = match from_utf8(data.as_slice()) {
             Ok(s) => s,
             Err(e) => panic!("{:?}", e)
-        };
+        }; */
         let mut body_started = false;
         let mut body_str = "".to_string();
-        for line in utf8_str.lines() {
+        for line_r in breader.lines() {
+            if line_r.is_err() {
+                println!("data could not be read as lines");
+                break;
+            }
+            let line = line_r.unwrap();
             if body_started {
-                body_str.push_str(line);
+                body_str.push_str(line.as_str());
             }
             if line.len() == 0 {
                 body_started = true;
