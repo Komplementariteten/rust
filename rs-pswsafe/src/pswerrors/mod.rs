@@ -6,5 +6,7 @@ pub enum PswSafeError {
     FileNotSupported,
     SaltNotFound,
     NumberOfIterationsNotFound,
-    IterationsNotInitialized
+    IterationsNotInitialized,
+    FileToSmall,
+    EofPositionError
 }

@@ -1,13 +1,15 @@
-mod pswsafe;
+mod pswfile;
 pub mod pswerrors;
+mod pswdb;
+mod util;
 
-use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use crate::pswerrors::PswSafeError;
-use crate::pswsafe::PswSafe;
+use crate::pswfile::PswSafe;
 use crate::PswSafeError::{FailedToOpenFile, FileNotFound, FileReadError};
+const BLOCK_SIZE: usize = 16;
 
 
 #[derive(Debug)]
@@ -21,6 +23,7 @@ pub struct PswFile {
 
 impl PswFile {
     pub fn open(file_name: &str, phrase: &str) -> Result<PswFile, PswSafeError> {
+
         let path = Path::new(file_name);
         if !path.exists() {
             return Err(FileNotFound)
@@ -36,7 +39,15 @@ impl PswFile {
         };
 
         let mut safe = PswSafe::new();
-
+        safe.load(&buff)?;
+        if safe.check_key(phrase.as_bytes().to_vec())? {
+            return Ok(PswFile {
+                is_open: false,
+                is_valid: true,
+                safe,
+                path: path.to_path_buf()
+            })
+        }
         Err(FailedToOpenFile)
     }
 }
