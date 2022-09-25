@@ -8,5 +8,6 @@ pub enum PswSafeError {
     NumberOfIterationsNotFound,
     IterationsNotInitialized,
     FileToSmall,
-    EofPositionError
+    EofPositionError,
+    InvalidKey
 }

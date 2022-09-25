@@ -16,8 +16,8 @@ use crate::util::bytes_as_u32;
 
 #[derive(Debug)]
 pub struct PswDb {
-    header: Vec<Header>,
-    records: Vec<DbRecord>,
+    pub header: Vec<Header>,
+    pub records: Vec<DbRecord>,
 }
 const LENGTH_BYTES: usize = 4;
 const BLOCK_PAYLOAD_SIZE: usize = 11;
