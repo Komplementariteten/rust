@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use crate::response::ProtocolError::{Base64DecodeFailed, InvalidHeader, InvalidHttpPath, ReadContentError};
 use std::net::{Shutdown, TcpStream};
+use std::str::from_utf8;
 use async_std::task;
 use async_std::task::JoinHandle;
 use regex::Regex;
@@ -160,25 +161,21 @@ impl HttpRequest {
                 Err(_) => 0,
             };
             data.extend(&buff[..readen]);
-            if readen == 0 {
+            if readen < buff.len() {
                 // request readen
                 break;
             }
         }
 
-        let breader = BufReader::new(data.as_slice());
-
+        let utf8_str = match from_utf8(data.as_slice()) {
+            Ok(s) => s,
+            Err(e) => panic!("{:?}", e)
+        };
         let mut body_started = false;
         let mut body_str = "".to_string();
-        for line_r in breader.lines() {
-
-            if line_r.is_err() {
-                continue;
-            }
-            let line = line_r.unwrap();
-
+        for line in utf8_str.lines() {
             if body_started {
-                body_str.push_str(line.as_str());
+                body_str.push_str(line);
             }
             if line.len() == 0 {
                 body_started = true;
@@ -189,7 +186,7 @@ impl HttpRequest {
             let buff = match base64::decode(&body_str) {
                 Ok(s) => s,
                 Err(e) => {
-                    println!("Decoding error: {:?} for {}", e, &body_str[..body_str.len()-10]);
+                    println!("Decoding error: {:?} for {}", e, body_str);
                     return Err(Base64DecodeFailed)
                 }
             };

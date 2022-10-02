@@ -1,5 +1,6 @@
 use crate::srvmiddleware::init_idrive;
 use http::server::{HttpServer, ServerCfg};
+use std::borrow::Borrow;
 use std::env;
 use async_std::task;
 use crate::client::SyncClient;

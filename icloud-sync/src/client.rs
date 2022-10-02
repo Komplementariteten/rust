@@ -1,6 +1,8 @@
-use async_std::fs::{copy, create_dir_all, OpenOptions};
+use std::str::from_utf8;
+use async_std::fs::{copy, create_dir_all, OpenOptions, remove_file};
 use async_std::io::WriteExt;
 use async_std::path::Path;
+use serde_json::json;
 use filewatcher::filescanner::PathFileEntry;
 use http::request::Request;
 use crate::client::SyncError::{CreateTempFileError, FailedToAcknowledge, FailedToGetFileList, FilePathError, ReadFileListError, WriteTempFileError};
@@ -23,35 +25,17 @@ pub struct SyncClient {
     file_list: Vec<PathFileEntry>
 }
 
-trait Ascii {
-    fn alphanum(&self) -> String;
-}
-
-const REMOVE_CHARS: &str = "~+*üöä;:=?() %$§\"![]{}#'|";
-
-impl Ascii for String {
-    fn alphanum(&self) -> String {
-       return self.clone().replace(| s: char | !s.is_ascii(), "").replace(| s| REMOVE_CHARS.contains(s), "");
-    }
-}
-
-impl Ascii for &str {
-    fn alphanum(&self) -> String {
-        self.to_string().alphanum()
-    }
-}
-
 impl SyncClient {
     pub fn new(con: String, tmp_folder: String, output_folder: String) -> SyncClient {
         SyncClient {
             base_url: con,
-            tmp_folder,
-            output_folder,
+            tmp_folder: tmp_folder,
+            output_folder: output_folder,
             file_list: Vec::new()
         }
     }
 
-    fn reade_file_list(&mut self, json: &str) -> Result<(), SyncError> {
+    fn reade_file_list<'a>(&mut self, json:&'a str) -> Result<(), SyncError> {
         let pe: Vec<PathFileEntry> = match serde_json::from_str(json) {
             Ok(l) => l,
             Err(e) => {
@@ -82,19 +66,16 @@ impl SyncClient {
                 //.expect("failed to read file");
             if file_bytes.is_ok() {
                 let path_str = match file.path.to_str() {
-                    Some(p) => p.alphanum(),
+                    Some(p) => p,
                     None => return Err(FilePathError)
                 };
-                let tmp_path = Path::new(self.tmp_folder.as_str()).join(path_str.as_str());
-                let out_path = Path::new(self.output_folder.as_str()).join(path_str.as_str());
+                let tmp_path = Path::new(self.tmp_folder.as_str()).join(path_str);
+                let out_path = Path::new(self.output_folder.as_str()).join(path_str);
                 println!("Writing {}:{}", tmp_path.parent().unwrap().to_str().unwrap(), tmp_path.file_name().unwrap().to_str().unwrap());
 
                 match create_dir_all(tmp_path.parent().unwrap()).await {
                     Ok(_) => (),
-                    Err(e) => {
-                        println!("Error {:?}", e);
-                        panic!("can't create parent directories")
-                    }
+                    Err(_) => panic!("can't create parent directories")
                 };
 
                 let mut fp = match OpenOptions::new().write(true).truncate(true).create(true).open(tmp_path.clone()).await {
@@ -115,10 +96,10 @@ impl SyncClient {
                             Ok(_) => (),
                             Err(_) => panic!("failed to copy to target")
                         }
-                        /*  match remove_file(tmp_path).await {
+                        match remove_file(tmp_path).await {
                             Ok(_) => (),
                             Err(_) => panic!("failed to remove tmp file")
-                        }; */
+                        };
                     },
                     Err(_) => return Err(WriteTempFileError)
                 };

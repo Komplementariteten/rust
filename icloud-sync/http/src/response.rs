@@ -5,8 +5,11 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::str::from_utf8;
 
+use regex::Regex;
 use time::format_description::well_known::Rfc2822;
 use time::OffsetDateTime;
+
+use crate::response::ProtocolError::{InvalidHeader, InvalidHttpPath};
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum HttpVerb {
