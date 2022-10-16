@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <interface>
+        <!-- interface-name win -->
+        <requires lib="gtk" version="4.6"/>
+        <template class="StartWindow" parent="GtkApplicationWindow">
+             <property name="default-height">600</property>
+            <property name="default-width">700</property>
+            <child>
+                <object id="file_filter" class="GtkFileFilter">
+                    <property name="name" >PwSafe File</property>
+                    <patterns>
+                        <pattern>*.pwsafe</pattern>
+                        <pattern>*.psafe3</pattern>
+                    </patterns>
+                </object>
+                <object class="GtkGrid">
+                    <child>
+                        <object class="GtkLabel">
+                            <property name="halign">start</property>
+                            <property name="label">key-phrase</property>
+                            <layout>
+                                <property name="column">0</property>
+                                <property name="column-span">1</property>
+                                <property name="row">1</property>
+                                <property name="row-span">1</property>
+                            </layout>
+                        </object>
+                    </child>
+                    <child>
+                        <object class="GtkEntry" id="phrase">
+                            <property name="editable">False</property>
+                            <property name="input-purpose">password</property>
+                            <property name="margin-bottom">3</property>
+                            <property name="margin-start">1</property>
+                            <layout>
+                                <property name="column">1</property>
+                                <property name="column-span">2</property>
+                                <property name="row">1</property>
+                                <property name="row-span">1</property>
+                            </layout>
+                        </object>
+                    </child>
+                    <child>
+                        <object class="GtkLabel" id="hint">
+                            <property name="label">Choose a pw-safe file</property>
+                            <layout>
+                                <property name="column">0</property>
+                                <property name="column-span">3</property>
+                                <property name="row">0</property>
+                                <property name="row-span">1</property>
+                            </layout>
+                        </object>
+                    </child>
+                </object>
+            </child>
+            <child type="titlebar">
+                <object class="GtkHeaderBar" id="headerbar">
+                    <property name="show-title-buttons">true</property>
+                    <property name="tooltip-text">search</property>
+                    <child type="end">
+                        <object class="MyFileChooserButton" id="choose_btn">
+                            <signal name="clicked" handler="choose_file" swapped="true" />
+                            <property name="icon-name">folder</property>
+                        </object>
+                    </child>
+                </object>
+            </child>
+        </template>
+    </interface>
