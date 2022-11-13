@@ -1,3 +1,2 @@
-#![feature(allocator_api)]
-
-pub mod plot;
+pub mod image;
+pub mod offline_plot;

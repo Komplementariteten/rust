@@ -1,37 +1,44 @@
-use image::{ImageBuffer, Rgba};
 use fast_image_resize as fr;
-use std::num::NonZeroU32;
 use fast_image_resize::Resizer;
+use fltk::enums::ColorDepth;
+use graph2img::{DisplayImageBuffer, PlotColorDepth};
+use image::{ImageBuffer, Rgba};
+use std::num::NonZeroU32;
 
-type PlotColorDepth = u8;
-pub type PlotImageBuffer = ImageBuffer<Rgba<PlotColorDepth>, Vec<PlotColorDepth>>;
-
-pub struct PlotBuffer {
-    plot: PlotImageBuffer,
+pub struct DisplayBuffer {
+    plot: DisplayImageBuffer,
     number_of_plots: u32,
-    resizer: Resizer
+    resizer: Resizer,
 }
 
-impl PlotBuffer {
-    pub fn new(width:NonZeroU32, height:NonZeroU32) -> PlotBuffer {
-        PlotBuffer {
-            plot: PlotImageBuffer::new(width.get(), height.get()),
+impl DisplayBuffer {
+    pub fn new(width: NonZeroU32, height: NonZeroU32) -> DisplayBuffer {
+        DisplayBuffer {
+            plot: DisplayImageBuffer::new(width.get(), height.get()),
             number_of_plots: 0,
-            resizer: fr::Resizer::new(fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3))
+            resizer: fr::Resizer::new(fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3)),
         }
     }
 
-    pub fn pixel(&self) -> Vec<PlotColorDepth> {
-        self.plot.clone().into_raw()
+    pub fn dims(&self) -> (u32, u32) {
+        (self.plot.width(), self.plot.height())
     }
 
-    pub fn append_image(&mut self, buff: &PlotImageBuffer) -> &PlotBuffer {
+    pub fn pixels(&self) -> (Vec<PlotColorDepth>, ColorDepth) {
+        (self.plot.clone().into_raw(), ColorDepth::Rgba8)
+    }
+
+    pub fn update(&mut self) {
+        self.number_of_plots = 0;
+    }
+
+    pub fn append_image(&mut self, buff: &DisplayImageBuffer) -> &DisplayBuffer {
         self.number_of_plots += 1;
         let current_width = NonZeroU32::new(self.plot.width()).unwrap();
         let current_height = NonZeroU32::new(self.plot.height()).unwrap();
 
         let dest_height = NonZeroU32::new(self.plot.height() / self.number_of_plots).unwrap();
-        let dest_width = NonZeroU32::new(self.plot.width() ).unwrap();
+        let dest_width = NonZeroU32::new(self.plot.width()).unwrap();
 
         if self.number_of_plots == 1 {
             self.plot = buff.clone();
@@ -42,30 +49,36 @@ impl PlotBuffer {
             current_width,
             current_height,
             self.plot.to_vec(),
-            fr::PixelType::U8x4
-        ).unwrap();
+            fr::PixelType::U8x4,
+        )
+        .unwrap();
         let alpha_mul_div = fr::MulDiv::default();
-        alpha_mul_div.multiply_alpha_inplace(&mut current_src.view_mut()).unwrap();
+        alpha_mul_div
+            .multiply_alpha_inplace(&mut current_src.view_mut())
+            .unwrap();
 
         let mut current_dest = fr::Image::new(dest_width, dest_height, current_src.pixel_type());
         let mut dst_view = current_dest.view_mut();
-        self.resizer.resize(&current_src.view(), &mut dst_view).unwrap();
+        self.resizer
+            .resize(&current_src.view(), &mut dst_view)
+            .unwrap();
         alpha_mul_div.divide_alpha_inplace(&mut dst_view).unwrap();
 
         let new_height = NonZeroU32::new(buff.height()).unwrap();
         let new_width = NonZeroU32::new(buff.width()).unwrap();
 
-        let mut new_src = fr::Image::from_vec_u8(
-            new_width,
-            new_height,
-            buff.to_vec(),
-            fr::PixelType::U8x4
-        ).unwrap();
+        let mut new_src =
+            fr::Image::from_vec_u8(new_width, new_height, buff.to_vec(), fr::PixelType::U8x4)
+                .unwrap();
 
         let mut new_dest = fr::Image::new(dest_width, dest_height, current_src.pixel_type());
         let mut new_dest_veiw = new_dest.view_mut();
-        alpha_mul_div.multiply_alpha_inplace(&mut new_src.view_mut()).unwrap();
-        self.resizer.resize(&new_src.view(), &mut new_dest_veiw).unwrap();
+        alpha_mul_div
+            .multiply_alpha_inplace(&mut new_src.view_mut())
+            .unwrap();
+        self.resizer
+            .resize(&new_src.view(), &mut new_dest_veiw)
+            .unwrap();
 
         alpha_mul_div.divide_alpha_inplace(&mut dst_view).unwrap();
 
