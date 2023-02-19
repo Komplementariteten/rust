@@ -1,0 +1,24 @@
+[package]
+name = "vulkano-test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vulkano = "0.32.3"
+vulkano-shaders = "0.32.0"
+winit = "0.27"
+vulkano-win = "0.32.0"
+vulkano-util = "0.32.0"
+bytemuck = { version="1.7.3", features = ["derive", "extern_crate_std", "min_const_generics"] }
+cgmath = "0.18.0"
+png = "0.17.7"
+serde = {version="1.0", features=["derive"] }
+ron = "0.8.0"
+rand = "0.8.5"
+glium = "0.32.1"
+image = "0.24.5"
+
+[profile.dev]
+opt-level=1
