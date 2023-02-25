@@ -1,25 +1,24 @@
-use crate::cartesian::XYCoordinateSystem;
-use std::ops::{Add, AddAssign, Div, DivAssign, RangeInclusive, RemAssign, Sub, SubAssign};
+use crate::graphs::cartesian::XYCoordinateSystem;
+use std::ops::{AddAssign, DivAssign, RangeInclusive, RemAssign, SubAssign};
 
-mod axis;
+pub mod axis;
 mod cartesian;
 
 pub trait FunctionGraph {
-    type CoordinateSystem;
     type PointType;
     type PointValueType: SubAssign<Self::PointValueType>
         + PartialEq<Self::PointValueType>
         + AddAssign<Self::PointValueType>
         + DivAssign<Self::PointValueType>
-        + Div<u32>
-        + Div<i32>
         + PartialOrd<Self::PointValueType>
         + RemAssign<Self::PointValueType>;
-    fn new() -> Self::CoordinateSystem;
+    type AxisType;
+    fn new() -> Self;
     fn add(&mut self, v: Self::PointType) -> bool;
     fn append(&mut self, v: &[Self::PointType]) -> bool;
     fn fix_axis(&mut self);
     fn size(&self) -> usize;
+    fn axis(&self) -> Vec<Self::AxisType>;
     fn dims2d(
         &self,
     ) -> (
@@ -31,14 +30,14 @@ pub trait FunctionGraph {
 pub struct Graph {}
 
 impl Graph {
-    fn new_xy() -> XYCoordinateSystem {
+    pub fn new_xy() -> XYCoordinateSystem {
         XYCoordinateSystem::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{FunctionGraph, Graph};
+    use crate::graphs::{FunctionGraph, Graph};
     use rand::prelude::*;
 
     #[test]

@@ -1,8 +1,8 @@
+use crate::graph2img::{DisplayImageBuffer, PlotColorDepth};
 use fast_image_resize as fr;
 use fast_image_resize::Resizer;
 use fltk::enums::ColorDepth;
-use graph2img::{DisplayImageBuffer, PlotColorDepth};
-use image::{ImageBuffer, Rgba};
+use image::ImageBuffer;
 use std::num::NonZeroU32;
 
 pub struct DisplayBuffer {

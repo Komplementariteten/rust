@@ -1,5 +1,5 @@
-use crate::axis::ContinualAxis;
-use crate::FunctionGraph;
+use crate::graphs::axis::{Axis, AxisDirection, ContinualAxis};
+use crate::graphs::FunctionGraph;
 use std::ops::RangeInclusive;
 
 /* Start XYCoordinateSystem */
@@ -13,8 +13,8 @@ pub struct XYCoordinateSystem {
 impl XYCoordinateSystem {
     fn new_xy() -> XYCoordinateSystem {
         XYCoordinateSystem {
-            y_axis: ContinualAxis::new(),
-            x_axis: ContinualAxis::new(),
+            y_axis: ContinualAxis::new(AxisDirection::Vertical),
+            x_axis: ContinualAxis::new(AxisDirection::Horizontal),
             data: vec![],
             fixed_axis: false,
         }
@@ -22,11 +22,11 @@ impl XYCoordinateSystem {
 }
 
 impl FunctionGraph for XYCoordinateSystem {
-    type CoordinateSystem = XYCoordinateSystem;
     type PointType = (f64, f64);
     type PointValueType = f64;
+    type AxisType = ContinualAxis<Self::PointValueType>;
 
-    fn new() -> Self::CoordinateSystem {
+    fn new() -> Self {
         XYCoordinateSystem::new_xy()
     }
 
@@ -70,13 +70,17 @@ impl FunctionGraph for XYCoordinateSystem {
         self.data.len()
     }
 
+    fn axis(&self) -> Vec<Self::AxisType> {
+        vec![self.x_axis.clone(), self.y_axis.clone()]
+    }
+
     fn dims2d(
         &self,
     ) -> (
         RangeInclusive<Self::PointValueType>,
         RangeInclusive<Self::PointValueType>,
     ) {
-        (self.x_axis.range.clone(), self.y_axis.range.clone())
+        (self.x_axis.value_range(), self.y_axis.value_range())
     }
 }
 /* End XYCoordinateSystem */
