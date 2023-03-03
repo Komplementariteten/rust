@@ -70,7 +70,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
@@ -123,7 +123,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
     let queue = queues.next().unwrap();
 
     let (swapchain, images) = {
@@ -160,7 +160,7 @@ fn main() {
                 ..Default::default()
             },
         )
-            .unwrap()
+        .unwrap()
     };
 
     let render_pass = vulkano::single_pass_renderpass!(
@@ -178,7 +178,7 @@ fn main() {
             depth_stencil: {}
         }
     )
-        .unwrap();
+    .unwrap();
 
     let framebuffers: Vec<Arc<Framebuffer>> = images
         .into_iter()
@@ -191,7 +191,7 @@ fn main() {
                     ..Default::default()
                 },
             )
-                .unwrap()
+            .unwrap()
         })
         .collect();
 
@@ -352,7 +352,7 @@ fn main() {
             false,
             vertices,
         )
-            .unwrap();
+        .unwrap();
 
         // Create a buffer array on the GPU with enough space for `PARTICLE_COUNT` number of `Vertex`.
         let device_local_buffer = DeviceLocalBuffer::<[Vertex]>::array(
@@ -368,7 +368,7 @@ fn main() {
             }, // Specify use as a storage buffer, vertex buffer, and transfer destination.
             device.active_queue_family_indices().iter().copied(),
         )
-            .unwrap();
+        .unwrap();
 
         // Create one-time command to copy between the buffers.
         let mut cbb = AutoCommandBufferBuilder::primary(
@@ -376,12 +376,12 @@ fn main() {
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )
-            .unwrap();
+        .unwrap();
         cbb.copy_buffer(CopyBufferInfo::buffers(
             temporary_accessible_buffer,
             device_local_buffer.clone(),
         ))
-            .unwrap();
+        .unwrap();
         let cb = cbb.build().unwrap();
 
         // Execute copy and wait for copy to complete before proceeding.
@@ -403,7 +403,7 @@ fn main() {
         None,
         |_| {},
     )
-        .expect("Failed to create compute shader");
+    .expect("Failed to create compute shader");
 
     // Create a new descriptor set for binding vertices as a Storage Buffer.
     use vulkano::pipeline::Pipeline; // Required to access layout() method of pipeline.
@@ -420,7 +420,7 @@ fn main() {
             WriteDescriptorSet::buffer(0, vertex_buffer.clone()),
         ],
     )
-        .unwrap();
+    .unwrap();
 
     // Fixed viewport dimensions.
     let viewport = Viewport {
@@ -509,7 +509,7 @@ fn main() {
                     queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
-                    .unwrap();
+                .unwrap();
                 builder
                     // Push constants for compute shader.
                     .push_constants(compute_pipeline.layout().clone(), 0, push_constants)

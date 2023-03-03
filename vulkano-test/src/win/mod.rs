@@ -1,18 +1,24 @@
-use std::io::Cursor;
+use crate::{shader, wrapper};
 use bytemuck::{Pod, Zeroable};
+use std::io::Cursor;
 use std::sync::Arc;
+use vulkano::command_buffer::PrimaryCommandBufferAbstract;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+use vulkano::format::Format;
+use vulkano::image::{ImageDimensions, ImmutableImage, MipmapsCount};
+use vulkano::pipeline::graphics::color_blend::ColorBlendState;
+use vulkano::pipeline::graphics::input_assembly::PrimitiveTopology;
+use vulkano::pipeline::{Pipeline, PipelineBindPoint};
+use vulkano::sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
         RenderPassBeginInfo, SubpassContents,
     },
-    device::{
-        physical::PhysicalDeviceType, Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo,
-    },
     image::{view::ImageView, ImageAccess, ImageUsage, SwapchainImage},
     impl_vertex,
-    instance::{Instance, InstanceCreateInfo},
     memory::allocator::StandardMemoryAllocator,
     pipeline::{
         graphics::{
@@ -28,17 +34,7 @@ use vulkano::{
         SwapchainPresentInfo,
     },
     sync::{self, FlushError, GpuFuture},
-    VulkanLibrary,
 };
-use vulkano::command_buffer::PrimaryCommandBufferAbstract;
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::format::Format;
-use vulkano::image::{ImageDimensions, ImmutableImage, MipmapsCount};
-use vulkano::pipeline::{Pipeline, PipelineBindPoint};
-use vulkano::pipeline::graphics::color_blend::ColorBlendState;
-use vulkano::pipeline::graphics::input_assembly::PrimitiveTopology;
-use vulkano::sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo};
 use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
@@ -46,8 +42,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-pub fn init() {
-
+pub fn test_png() {
     let mut img = image::ImageBuffer::new(400, 400);
 
     for (x, y, pixel) in img.enumerate_pixels_mut() {
@@ -60,34 +55,15 @@ pub fn init() {
 
     img.save("abc.png").unwrap();
     let mut bytes: Vec<u8> = vec![];
-    img.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Png).unwrap();
+    img.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Png)
+        .unwrap();
 
     from_png_bytes(bytes);
 }
 
 pub fn from_png_bytes(vec: Vec<u8>) {
-    // The first step of any Vulkan program is to create an instance.
-    //
-    // When we create an instance, we have to pass a list of extensions that we want to enable.
-    //
-    // All the window-drawing functionalities are part of non-core extensions that we need
-    // to enable manually. To do so, we ask the `vulkano_win` crate for the list of extensions
-    // required to draw to a window.
-    let library = VulkanLibrary::new().unwrap();
-    let required_extensions = vulkano_win::required_extensions(&library);
-
-    // Now creating the instance.
-    let instance = Instance::new(
-        library,
-        InstanceCreateInfo {
-            enabled_extensions: required_extensions,
-            // Enable enumerating devices that use non-conformant vulkan implementations. (ex. MoltenVK)
-            enumerate_portability: true,
-            ..Default::default()
-        },
-    )
-        .unwrap();
-
+    // Init vulkan
+    let instance = wrapper::init_vulkan().unwrap();
     // The objective of this example is to draw a triangle on a window. To do so, we first need to
     // create the window.
     //
@@ -102,110 +78,16 @@ pub fn from_png_bytes(vec: Vec<u8>) {
     let surface = WindowBuilder::new()
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
-
-    // Choose device extensions that we're going to use.
-    // In order to present images to a surface, we need a `Swapchain`, which is provided by the
-    // `khr_swapchain` extension.
-    let device_extensions = DeviceExtensions {
-        khr_swapchain: true,
-        ..DeviceExtensions::empty()
-    };
-
-    // We then choose which physical device to use. First, we enumerate all the available physical
-    // devices, then apply filters to narrow them down to those that can support our needs.
-    let (physical_device, queue_family_index) = instance
-        .enumerate_physical_devices()
-        .unwrap()
-        .filter(|p| {
-            // Some devices may not support the extensions or features that your application, or
-            // report properties and limits that are not sufficient for your application. These
-            // should be filtered out here.
-            p.supported_extensions().contains(&device_extensions)
-        })
-        .filter_map(|p| {
-            // For each physical device, we try to find a suitable queue family that will execute
-            // our draw commands.
-            //
-            // Devices can provide multiple queues to run commands in parallel (for example a draw
-            // queue and a compute queue), similar to CPU threads. This is something you have to
-            // have to manage manually in Vulkan. Queues of the same type belong to the same
-            // queue family.
-            //
-            // Here, we look for a single queue family that is suitable for our purposes. In a
-            // real-life application, you may want to use a separate dedicated transfer queue to
-            // handle data transfers in parallel with graphics operations. You may also need a
-            // separate queue for compute operations, if your application uses those.
-            p.queue_family_properties()
-                .iter()
-                .enumerate()
-                .position(|(i, q)| {
-                    // We select a queue family that supports graphics operations. When drawing to
-                    // a window surface, as we do in this example, we also need to check that queues
-                    // in this queue family are capable of presenting images to the surface.
-                    q.queue_flags.graphics && p.surface_support(i as u32, &surface).unwrap_or(false)
-                })
-                // The code here searches for the first queue family that is suitable. If none is
-                // found, `None` is returned to `filter_map`, which disqualifies this physical
-                // device.
-                .map(|i| (p, i as u32))
-        })
-        // All the physical devices that pass the filters above are suitable for the application.
-        // However, not every device is equal, some are preferred over others. Now, we assign
-        // each physical device a score, and pick the device with the
-        // lowest ("best") score.
-        //
-        // In this example, we simply select the best-scoring device to use in the application.
-        // In a real-life setting, you may want to use the best-scoring device only as a
-        // "default" or "recommended" device, and let the user choose the device themselves.
-        .min_by_key(|(p, _)| {
-            // We assign a lower score to device types that are likely to be faster/better.
-            match p.properties().device_type {
-                PhysicalDeviceType::DiscreteGpu => 0,
-                PhysicalDeviceType::IntegratedGpu => 1,
-                PhysicalDeviceType::VirtualGpu => 2,
-                PhysicalDeviceType::Cpu => 3,
-                PhysicalDeviceType::Other => 4,
-                _ => 5,
-            }
-        })
-        .expect("No suitable physical device found");
+    // Init device and queue
+    let (device, queue) =
+        wrapper::get_device(&instance, &surface).expect("no suitable physical device found");
 
     // Some little debug infos.
     println!(
         "Using device: {} (type: {:?})",
-        physical_device.properties().device_name,
-        physical_device.properties().device_type,
+        device.physical_device().properties().device_name,
+        device.physical_device().properties().device_type,
     );
-
-    // Now initializing the device. This is probably the most important object of Vulkan.
-    //
-    // The iterator of created queues is returned by the function alongside the device.
-    let (device, mut queues) = Device::new(
-        // Which physical device to connect to.
-        physical_device,
-        DeviceCreateInfo {
-            // A list of optional features and extensions that our program needs to work correctly.
-            // Some parts of the Vulkan specs are optional and must be enabled manually at device
-            // creation. In this example the only thing we are going to need is the `khr_swapchain`
-            // extension that allows us to draw to a window.
-            enabled_extensions: device_extensions,
-
-            // The list of queues that we are going to use. Here we only use one queue, from the
-            // previously chosen queue family.
-            queue_create_infos: vec![QueueCreateInfo {
-                queue_family_index,
-                ..Default::default()
-            }],
-
-            ..Default::default()
-        },
-    )
-        .unwrap();
-
-    // Since we can request multiple queues, the `queues` variable is in fact an iterator. We
-    // only use one queue in this example, so we just retrieve the first and only element of the
-    // iterator.
-    let queue = queues.next().unwrap();
 
     // Before we can draw on the surface, we have to create what is called a swapchain. Creating
     // a swapchain allocates the color buffers that will contain the image that will ultimately
@@ -268,7 +150,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
                 ..Default::default()
             },
         )
-            .unwrap()
+        .unwrap()
     };
 
     let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
@@ -306,7 +188,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
         false,
         vertices,
     )
-        .unwrap();
+    .unwrap();
 
     // The next step is to create the shaders.
     //
@@ -324,8 +206,8 @@ pub fn from_png_bytes(vec: Vec<u8>) {
     //
     // A more detailed overview of what the `shader!` macro generates can be found in the
     // `vulkano-shaders` crate docs. You can view them at https://docs.rs/vulkano-shaders/
-    let vs = vs::load(device.clone()).unwrap();
-    let fs = fs::load(device.clone()).unwrap();
+    let vs = shader::vertex::load(device.clone()).unwrap();
+    let fs = shader::fragment::load(device.clone()).unwrap();
 
     // At this point, OpenGL initialization would be finished. However in Vulkan it is not. OpenGL
     // implicitly does a lot of computation whenever you draw. In Vulkan, you have to do all this
@@ -363,7 +245,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
             depth_stencil: {}
         }
     )
-        .unwrap();
+    .unwrap();
 
     let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
     let command_buffer_allocator =
@@ -373,7 +255,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
         queue.queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )
-        .unwrap();
+    .unwrap();
 
     let texture = {
         let png_bytes = vec;
@@ -398,7 +280,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
             Format::R8G8B8A8_SRGB,
             &mut uploads,
         )
-            .unwrap();
+        .unwrap();
         ImageView::new_default(image).unwrap()
     };
 
@@ -411,7 +293,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     // Before we draw we have to create what is called a pipeline. This is similar to an OpenGL
@@ -455,8 +337,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
         layout.clone(),
         [WriteDescriptorSet::image_view_sampler(0, texture, sampler)],
     )
-        .unwrap();
-
+    .unwrap();
 
     // Initialization is finally finished!
 
@@ -581,7 +462,7 @@ pub fn from_png_bytes(vec: Vec<u8>) {
                     queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
-                    .unwrap();
+                .unwrap();
 
                 builder
                     // Before we can draw, we have to *enter a render pass*.
@@ -684,56 +565,7 @@ fn window_size_dependent_setup(
                     ..Default::default()
                 },
             )
-                .unwrap()
+            .unwrap()
         })
         .collect::<Vec<_>>()
-}
-
-// The next step is to create the shaders.
-//
-// The raw shader creation API provided by the vulkano library is unsafe for various
-// reasons, so The `shader!` macro provides a way to generate a Rust module from GLSL
-// source - in the example below, the source is provided as a string input directly to
-// the shader, but a path to a source file can be provided as well. Note that the user
-// must specify the type of shader (e.g., "vertex," "fragment, etc.") using the `ty`
-// option of the macro.
-//
-// The module generated by the `shader!` macro includes a `load` function which loads
-// the shader using an input logical device. The module also includes type definitions
-// for layout structures defined in the shader source, for example, uniforms and push
-// constants.
-//
-// A more detailed overview of what the `shader!` macro generates can be found in the
-// `vulkano-shaders` crate docs. You can view them at https://docs.rs/vulkano-shaders/
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
-
-layout(location = 0) in vec2 position;
-layout(location = 0) out vec2 tex_coords;
-
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    tex_coords = position + vec2(0.5);
-}"
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-#version 450
-
-layout(location = 0) in vec2 tex_coords;
-layout(location = 0) out vec4 f_color;
-
-layout(set = 0, binding = 0) uniform sampler2D tex;
-
-void main() {
-    f_color = texture(tex, tex_coords);
-}"
-    }
 }

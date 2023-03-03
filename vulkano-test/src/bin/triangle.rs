@@ -66,7 +66,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     // The objective of this example is to draw a triangle on a window. To do so, we first need to
     // create the window.
@@ -180,7 +180,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     // Since we can request multiple queues, the `queues` variable is in fact an iterator. We
     // only use one queue in this example, so we just retrieve the first and only element of the
@@ -248,7 +248,7 @@ fn main() {
                 ..Default::default()
             },
         )
-            .unwrap()
+        .unwrap()
     };
 
     let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
@@ -283,7 +283,7 @@ fn main() {
         false,
         vertices,
     )
-        .unwrap();
+    .unwrap();
 
     // The next step is to create the shaders.
     //
@@ -340,7 +340,7 @@ fn main() {
             depth_stencil: {}
         }
     )
-        .unwrap();
+    .unwrap();
 
     // Before we can start creating and recording command buffers, we need a way of allocating
     // them. Vulkano provides a command buffer allocator, which manages raw Vulkan command pools
@@ -403,8 +403,7 @@ fn main() {
     //
     // Destroying the `GpuFuture` blocks until the GPU is finished executing it. In order to avoid
     // that, we store the submission of the previous frame here.
-    let mut previous_frame_end = Some(
-        sync::now(device.clone()).boxed());
+    let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -450,15 +449,15 @@ fn main() {
                             // Simply restarting the loop is the easiest way to fix this issue.
                             Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return,
                             Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                    };
+                        };
 
                     swapchain = new_swapchain;
                     // Because framebuffers contains an Arc on the old swapchain, we need to
                     // recreate framebuffers as well.
                     framebuffers = window_size_dependent_setup(
-                            &new_images,
-                            render_pass.clone(),
-                            &mut viewport,
+                        &new_images,
+                        render_pass.clone(),
+                        &mut viewport,
                     );
                     recreate_swapchain = false;
                 }
@@ -501,7 +500,7 @@ fn main() {
                     queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
-                    .unwrap();
+                .unwrap();
 
                 builder
                     // Before we can draw, we have to *enter a render pass*.
@@ -598,7 +597,7 @@ fn window_size_dependent_setup(
                     ..Default::default()
                 },
             )
-                .unwrap()
+            .unwrap()
         })
         .collect::<Vec<_>>()
 }
@@ -621,8 +620,8 @@ fn window_size_dependent_setup(
 // `vulkano-shaders` crate docs. You can view them at https://docs.rs/vulkano-shaders/
 mod vs {
     vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
+    ty: "vertex",
+    src: "
 #version 450
 
 				layout(location = 0) in vec2 position;
@@ -631,13 +630,13 @@ mod vs {
 					gl_Position = vec4(position, 0.0, 1.0);
 				}
 			"
-        }
+    }
 }
 
 mod fs {
     vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
+    ty: "fragment",
+    src: "
 #version 450
 
 				layout(location = 0) out vec4 f_color;
@@ -646,5 +645,5 @@ mod fs {
 					f_color = vec4(1.0, 0.0, 0.0, 1.0);
 				}
 			"
-        }
+    }
 }

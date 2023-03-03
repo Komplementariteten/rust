@@ -1,4 +1,4 @@
-use vulkano_test::winwrapper::init;
+use vulkano_test::win::test_png;
 fn main() {
-    init()
+    test_png()
 }

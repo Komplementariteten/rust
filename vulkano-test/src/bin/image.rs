@@ -75,7 +75,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     // The objective of this example is to draw a triangle on a window. To do so, we first need to
     // create the window.
@@ -189,7 +189,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     // Since we can request multiple queues, the `queues` variable is in fact an iterator. We
     // only use one queue in this example, so we just retrieve the first and only element of the
@@ -257,7 +257,7 @@ fn main() {
                 ..Default::default()
             },
         )
-            .unwrap()
+        .unwrap()
     };
 
     let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
@@ -295,7 +295,7 @@ fn main() {
         false,
         vertices,
     )
-        .unwrap();
+    .unwrap();
 
     // The next step is to create the shaders.
     //
@@ -352,7 +352,7 @@ fn main() {
             depth_stencil: {}
         }
     )
-        .unwrap();
+    .unwrap();
 
     let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
     let command_buffer_allocator =
@@ -362,7 +362,7 @@ fn main() {
         queue.queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )
-        .unwrap();
+    .unwrap();
 
     let texture = {
         let png_bytes = include_bytes!("image_img.png").to_vec();
@@ -387,7 +387,7 @@ fn main() {
             Format::R8G8B8A8_SRGB,
             &mut uploads,
         )
-            .unwrap();
+        .unwrap();
         ImageView::new_default(image).unwrap()
     };
 
@@ -400,7 +400,7 @@ fn main() {
             ..Default::default()
         },
     )
-        .unwrap();
+    .unwrap();
 
     let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
     // Before we draw we have to create what is called a pipeline. This is similar to an OpenGL
@@ -444,8 +444,7 @@ fn main() {
         layout.clone(),
         [WriteDescriptorSet::image_view_sampler(0, texture, sampler)],
     )
-        .unwrap();
-
+    .unwrap();
 
     // Initialization is finally finished!
 
@@ -519,15 +518,15 @@ fn main() {
                             // Simply restarting the loop is the easiest way to fix this issue.
                             Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return,
                             Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                    };
+                        };
 
                     swapchain = new_swapchain;
                     // Because framebuffers contains an Arc on the old swapchain, we need to
                     // recreate framebuffers as well.
                     framebuffers = window_size_dependent_setup(
-                            &new_images,
-                            render_pass.clone(),
-                            &mut viewport,
+                        &new_images,
+                        render_pass.clone(),
+                        &mut viewport,
                     );
                     recreate_swapchain = false;
                 }
@@ -570,7 +569,7 @@ fn main() {
                     queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 )
-                    .unwrap();
+                .unwrap();
 
                 builder
                     // Before we can draw, we have to *enter a render pass*.
@@ -673,7 +672,7 @@ fn window_size_dependent_setup(
                     ..Default::default()
                 },
             )
-                .unwrap()
+            .unwrap()
         })
         .collect::<Vec<_>>()
 }
