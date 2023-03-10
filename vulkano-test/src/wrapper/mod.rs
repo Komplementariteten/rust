@@ -1,15 +1,153 @@
+use std::io::Cursor;
 use std::sync::Arc;
 
+use bytemuck::{Pod, Zeroable};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage};
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::{DeviceCreationError, Queue};
+use vulkano::format::Format;
+use vulkano::image::view::ImageView;
+use vulkano::image::{ImageDimensions, ImageUsage, ImmutableImage, MipmapsCount, SwapchainImage};
 use vulkano::instance::InstanceCreationError;
-use vulkano::swapchain::Surface;
+use vulkano::pipeline::graphics::color_blend::ColorBlendState;
+use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
+use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
+use vulkano::pipeline::graphics::viewport::ViewportState;
+use vulkano::pipeline::graphics::GraphicsPipelineCreationError;
+use vulkano::pipeline::GraphicsPipeline;
+use vulkano::render_pass::{RenderPass, RenderPassCreationError, Subpass};
+use vulkano::sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo};
+use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo, SwapchainCreationError};
 use vulkano::{
     device::{
         physical::PhysicalDeviceType, Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo,
     },
+    impl_vertex,
     instance::{Instance, InstanceCreateInfo},
     VulkanLibrary,
 };
+use winit::window::Window;
+
+// We now create a buffer that will store the shape of our triangle.
+// We use #[repr(C)] here to force rustc to not do anything funky with our data, although for this
+// particular example, it doesn't actually change the in-memory representation.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
+pub(crate) struct Vertex2D {
+    pub(crate) position: [f32; 2],
+}
+impl_vertex!(Vertex, position);
+
+pub(crate) fn init_swapchain(
+    device: &Arc<Device>,
+    surface: &Arc<Surface>,
+) -> Result<(Arc<Swapchain>, Vec<Arc<SwapchainImage>>), SwapchainCreationError> {
+    // Before we can draw on the surface, we have to create what is called a swapchain. Creating
+    // a swapchain allocates the color buffers that will contain the image that will ultimately
+    // be visible on the screen. These images are returned alongside the swapchain.
+    return {
+        // Querying the capabilities of the surface. When we create the swapchain we can only
+        // pass values that are allowed by the capabilities.
+        let surface_capabilities = device
+            .physical_device()
+            .surface_capabilities(&surface, Default::default())
+            .unwrap();
+
+        // Choosing the internal format that the images will have.
+        let image_format = Some(
+            device
+                .physical_device()
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0,
+        );
+        let window = surface.object().unwrap().downcast_ref::<Window>().unwrap();
+
+        // Please take a look at the docs for the meaning of the parameters we didn't mention.
+        Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            SwapchainCreateInfo {
+                min_image_count: surface_capabilities.min_image_count,
+
+                image_format,
+                // The dimensions of the window, only used to initially setup the swapchain.
+                // NOTE:
+                // On some drivers the swapchain dimensions are specified by
+                // `surface_capabilities.current_extent` and the swapchain size must use these
+                // dimensions.
+                // These dimensions are always the same as the window dimensions.
+                //
+                // However, other drivers don't specify a value, i.e.
+                // `surface_capabilities.current_extent` is `None`. These drivers will allow
+                // anything, but the only sensible value is the window
+                // dimensions.
+                //
+                // Both of these cases need the swapchain to use the window dimensions, so we just
+                // use that.
+                image_extent: window.inner_size().into(),
+
+                image_usage: ImageUsage {
+                    color_attachment: true,
+                    ..ImageUsage::empty()
+                },
+
+                // The alpha mode indicates how the alpha value of the final image will behave. For
+                // example, you can choose whether the window will be opaque or transparent.
+                composite_alpha: surface_capabilities
+                    .supported_composite_alpha
+                    .iter()
+                    .next()
+                    .unwrap(),
+
+                ..Default::default()
+            },
+        )
+    };
+}
+
+pub(crate) fn get_render_pass(
+    device: &Arc<Device>,
+    swapchain: &Arc<Swapchain>,
+) -> Result<Arc<RenderPass>, RenderPassCreationError> {
+    // At this point, OpenGL initialization would be finished. However in Vulkan it is not. OpenGL
+    // implicitly does a lot of computation whenever you draw. In Vulkan, you have to do all this
+    // manually.
+
+    // The next step is to create a *render pass*, which is an object that describes where the
+    // output of the graphics pipeline will go. It describes the layout of the images
+    // where the colors, depth and/or stencil information will be written.
+    return vulkano::single_pass_renderpass!(
+        device.clone(),
+        attachments: {
+            // `color` is a custom name we give to the first and only attachment.
+            color: {
+                // `load: Clear` means that we ask the GPU to clear the content of this
+                // attachment at the start of the drawing.
+                load: Clear,
+                // `store: Store` means that we ask the GPU to store the output of the draw
+                // in the actual image. We could also ask it to discard the result.
+                store: Store,
+                // `format: <ty>` indicates the type of the format of the image. This has to
+                // be one of the types of the `vulkano::format` module (or alternatively one
+                // of your structs that implements the `FormatDesc` trait). Here we use the
+                // same format as the swapchain.
+                format: swapchain.image_format(),
+                // `samples: 1` means that we ask the GPU to use one sample to determine the value
+                // of each pixel in the color attachment. We could use a larger value (multisampling)
+                // for antialiasing. An example of this can be found in msaa-renderpass.rs.
+                samples: 1,
+            }
+        },
+        pass: {
+            // We use the attachment named `color` as the one and only color attachment.
+            color: [color],
+            // No depth-stencil attachment is indicated with empty brackets.
+            depth_stencil: {}
+        }
+    );
+}
 
 pub(crate) fn init_vulkan() -> Result<Arc<Instance>, InstanceCreationError> {
     // The first step of any Vulkan program is to create an instance.
