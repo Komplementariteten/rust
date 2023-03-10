@@ -68,7 +68,10 @@ fn main() -> ! {
             while !sensor.mag_status().unwrap().xyz_new_data {}
 
             let data = sensor.mag_data().unwrap();
+            #[cfg(not(feature = "serial"))]
             rprintln!("Magnetization x: {}, y: {}, z: {}", data.x, data.y, data.z);
+            #[cfg(feature = "serial")]
+            write!(serial, "{};{};{}", data.x, data.y, data.z).unwrap();
 
             board.display_pins.row1.set_low().unwrap();
             timer.delay_ms(100_u16);

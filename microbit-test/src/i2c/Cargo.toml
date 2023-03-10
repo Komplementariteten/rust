@@ -17,6 +17,7 @@ embedded-hal = "0.2.7"
 lsm303agr = "0.2.2"
 
 [features]
-default=["mag"]
+default=["mag", "serial"]
 mag=[]
 accel=[]
+serial=[]

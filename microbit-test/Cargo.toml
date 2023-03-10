@@ -4,5 +4,6 @@ version = "0.1.0"
 
 [workspace]
 members = [
-    "src/uart"
+    "src/uart",
+    "src/i2c"
 ]
