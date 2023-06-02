@@ -71,7 +71,7 @@ fn main() -> ! {
             #[cfg(not(feature = "serial"))]
             rprintln!("Magnetization x: {}, y: {}, z: {}", data.x, data.y, data.z);
             #[cfg(feature = "serial")]
-            write!(serial, "{};{};{}", data.x, data.y, data.z).unwrap();
+            qwrite!(serial, "{};{};{}", data.x, data.y, data.z).unwrap();
 
             board.display_pins.row1.set_low().unwrap();
             timer.delay_ms(100_u16);
