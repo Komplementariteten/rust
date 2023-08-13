@@ -1,0 +1,27 @@
+[package]
+name = "portenta-h7-workspace"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = ["portenta_h7", "adc_dac", "usb_echo"]
+
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'abort'
+incremental = true
+
+[profile.release]
+opt-level = "s"
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = 'abort'
+incremental = false
