@@ -17,6 +17,7 @@ pub trait UserLed {
     fn set_on(&mut self);
     fn set_off(&mut self);
     fn toggle(&mut self);
+    fn is_on(&self) -> bool;
 }
 
 impl<const P: char, const N: u8> UserLed for DigitalOutputPin<P, N>
@@ -36,5 +37,10 @@ impl<const P: char, const N: u8> UserLed for DigitalOutputPin<P, N>
     #[inline(always)]
     fn toggle(&mut self) {
         self.toggle();
+    }
+
+    #[inline(always)]
+    fn is_on(&self) -> bool {
+        self.is_set_high()
     }
 }

@@ -1,17 +1,20 @@
 [package]
-name = "adc-dac"
+name = "adc_dac"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cortex-m = "0.7.7"
+cortex-m = {version = "^0.7.7", features = ["critical-section-single-core"]}
 cortex-m-rt = "0.7.3"
 stm32h7xx-hal = { version = "0.14.0", features = ["stm32h747cm7", "rt", "usb_hs"]}
 rtt-target = { version = "0.4.0"}
-portenta_h7 = { path = "../portenta_h7" }
 cortex-m-rtic = "1.1.4"
 systick-monotonic = "1.0.1"
 usb-device = "0.2.9"
 usbd-serial = "0.1.1"
+log = "0.4.20"
+portenta_h7 = { path = "../portenta_h7" }
+
+[features]
