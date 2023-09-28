@@ -1,7 +1,7 @@
-use std::time::Duration;
+mod usbhelper;
 
 fn main() {
-    for device in rusb::devices().unwrap().iter() {
+    /* for device in rusb::devices().unwrap().iter() {
         let device_desc = device.device_descriptor().unwrap();
 
         println!("Bus {:03} Device {:03} ID {:04x}:{:04x}",
@@ -13,13 +13,26 @@ fn main() {
             Ok(_) => println!("Device opened!"),
             Err(e) => println!("Can't open with {:?}", e)
         };
-    }
+    } */
 
-    if let Some(echo_device) = rusb::open_device_with_vid_pid(0x1234, 0xabcd) {
-        let timeout = Duration::from_secs(1);
-        println!("Active configuration: {}", echo_device.active_configuration().unwrap());
-        println!("Language: {:?}", echo_device.read_languages(timeout).unwrap());
+    // let vendor_id = 0x0483;
+    // let product_id = 0x374f;
+    let vendor_id = 0x1234;
+    let product_id = 0xabcd;
+
+    if let Some(mut dev) = usbhelper::open(vendor_id, product_id) {
+        // let cfg = echo_device.device().config_descriptor(active_config).expect("Failed to get config");
+        match dev.write() {
+            Err(e) => panic!("{:?}", e),
+            Ok(v) => println!("written {}", v)
+        }
+
+        match dev.read() {
+            Err(e) => panic!("{:?}", e),
+            Ok(v) => println!("{:?}", v)
+        }
+        // let ifc = echo_device.device().interfaces();
     } else {
-        println!("USB Device with ID: {:04x}:{:04x} not found", 0x1234, 0xabcd);
+        println!("USB Device with ID: {:04x}:{:04x} not found", vendor_id, product_id);
     }
 }

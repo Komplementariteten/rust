@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["portenta_h7", "adc_dac", "usb_echo", "cortex_demo"]
+members = ["portenta_h7", "usb_echo", "stm32h747", "stm32h747_test"]
 
 [profile.dev]
 opt-level = 0

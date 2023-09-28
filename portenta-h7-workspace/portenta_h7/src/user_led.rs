@@ -21,8 +21,8 @@ pub trait UserLed {
 }
 
 impl<const P: char, const N: u8> UserLed for DigitalOutputPin<P, N>
-    where
-        DigitalOutputPin<P, N>: BoardLed,
+where
+    DigitalOutputPin<P, N>: BoardLed,
 {
     #[inline(always)]
     fn set_on(&mut self) {

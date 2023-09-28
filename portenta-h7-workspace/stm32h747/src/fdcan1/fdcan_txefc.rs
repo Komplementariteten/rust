@@ -1,0 +1,75 @@
+#[doc = "Register `FDCAN_TXEFC` reader"]
+pub type R = crate::R<FDCAN_TXEFC_SPEC>;
+#[doc = "Register `FDCAN_TXEFC` writer"]
+pub type W = crate::W<FDCAN_TXEFC_SPEC>;
+#[doc = "Field `EFSA` reader - Event FIFO Start Address"]
+pub type EFSA_R = crate::FieldReader<u16>;
+#[doc = "Field `EFSA` writer - Event FIFO Start Address"]
+pub type EFSA_W<'a, REG, const O: u8> = crate::FieldWriter<'a, REG, 14, O, u16>;
+#[doc = "Field `EFS` reader - Event FIFO Size"]
+pub type EFS_R = crate::FieldReader;
+#[doc = "Field `EFS` writer - Event FIFO Size"]
+pub type EFS_W<'a, REG, const O: u8> = crate::FieldWriter<'a, REG, 6, O>;
+#[doc = "Field `EFWM` reader - Event FIFO Watermark"]
+pub type EFWM_R = crate::FieldReader;
+#[doc = "Field `EFWM` writer - Event FIFO Watermark"]
+pub type EFWM_W<'a, REG, const O: u8> = crate::FieldWriter<'a, REG, 6, O>;
+impl R {
+    #[doc = "Bits 2:15 - Event FIFO Start Address"]
+    #[inline(always)]
+    pub fn efsa(&self) -> EFSA_R {
+        EFSA_R::new(((self.bits >> 2) & 0x3fff) as u16)
+    }
+    #[doc = "Bits 16:21 - Event FIFO Size"]
+    #[inline(always)]
+    pub fn efs(&self) -> EFS_R {
+        EFS_R::new(((self.bits >> 16) & 0x3f) as u8)
+    }
+    #[doc = "Bits 24:29 - Event FIFO Watermark"]
+    #[inline(always)]
+    pub fn efwm(&self) -> EFWM_R {
+        EFWM_R::new(((self.bits >> 24) & 0x3f) as u8)
+    }
+}
+impl W {
+    #[doc = "Bits 2:15 - Event FIFO Start Address"]
+    #[inline(always)]
+    #[must_use]
+    pub fn efsa(&mut self) -> EFSA_W<FDCAN_TXEFC_SPEC, 2> {
+        EFSA_W::new(self)
+    }
+    #[doc = "Bits 16:21 - Event FIFO Size"]
+    #[inline(always)]
+    #[must_use]
+    pub fn efs(&mut self) -> EFS_W<FDCAN_TXEFC_SPEC, 16> {
+        EFS_W::new(self)
+    }
+    #[doc = "Bits 24:29 - Event FIFO Watermark"]
+    #[inline(always)]
+    #[must_use]
+    pub fn efwm(&mut self) -> EFWM_W<FDCAN_TXEFC_SPEC, 24> {
+        EFWM_W::new(self)
+    }
+    #[doc = "Writes raw bits to the register."]
+    #[inline(always)]
+    pub unsafe fn bits(&mut self, bits: u32) -> &mut Self {
+        self.bits = bits;
+        self
+    }
+}
+#[doc = "FDCAN Tx Event FIFO Configuration Register\n\nYou can [`read`](crate::generic::Reg::read) this register and get [`fdcan_txefc::R`](R).  You can [`reset`](crate::generic::Reg::reset), [`write`](crate::generic::Reg::write), [`write_with_zero`](crate::generic::Reg::write_with_zero) this register using [`fdcan_txefc::W`](W). You can also [`modify`](crate::generic::Reg::modify) this register. See [API](https://docs.rs/svd2rust/#read--modify--write-api)."]
+pub struct FDCAN_TXEFC_SPEC;
+impl crate::RegisterSpec for FDCAN_TXEFC_SPEC {
+    type Ux = u32;
+}
+#[doc = "`read()` method returns [`fdcan_txefc::R`](R) reader structure"]
+impl crate::Readable for FDCAN_TXEFC_SPEC {}
+#[doc = "`write(|w| ..)` method takes [`fdcan_txefc::W`](W) writer structure"]
+impl crate::Writable for FDCAN_TXEFC_SPEC {
+    const ZERO_TO_MODIFY_FIELDS_BITMAP: Self::Ux = 0;
+    const ONE_TO_MODIFY_FIELDS_BITMAP: Self::Ux = 0;
+}
+#[doc = "`reset()` method sets FDCAN_TXEFC to value 0"]
+impl crate::Resettable for FDCAN_TXEFC_SPEC {
+    const RESET_VALUE: Self::Ux = 0;
+}

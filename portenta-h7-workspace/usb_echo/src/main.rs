@@ -53,7 +53,7 @@ mod app {
             : usb_device::class_prelude::UsbBusAllocator<UsbBus<USB>> =
                 UsbBus::new(usb, unsafe { &mut USB_BUS_BUFFER })
         )
-            .unwrap();
+        .unwrap();
         let usb_serial_port = usbd_serial::CdcAcmClass::new(usb_bus, USB_HS_MAX_PACKET_SIZE as u16);
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x1234, 0xABCD))
             .manufacturer("example")

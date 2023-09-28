@@ -15,7 +15,7 @@ use hal::{gpio::PinState, pac, prelude::*, rcc, time::Hertz, usb_hs::USB1_ULPI};
 #[allow(unused_imports)]
 pub use rtt_target::{rprintln as log, rtt_init_print as log_init};
 pub use stm32h7xx_hal as hal;
-use stm32h7xx_hal::dac::{C1, Enabled};
+use stm32h7xx_hal::dac::{Enabled, C1};
 use stm32h7xx_hal::hal::blocking::delay;
 use stm32h7xx_hal::stm32::DAC;
 use stm32h7xx_hal::traits::DacOut;
@@ -24,7 +24,7 @@ use stm32h7xx_hal::traits::DacOut;
 // use stm32h7xx_hal::rcc::rec::AdcClkSel;
 
 pub type CorePeripherals = cortex_m::Peripherals;
-pub type PortentaDac  = C1<DAC, Enabled>;
+pub type PortentaDac = C1<DAC, Enabled>;
 
 pub const CORE_FREQUENCY: Hertz = Hertz::from_raw(480_000_000);
 
@@ -33,11 +33,8 @@ pub struct Board {
     pub led_green: user_led::Green,
     pub led_blue: user_led::Blue,
     pub usb: USB1_ULPI,
-    pub dac: PortentaDac,
     // pub adc_channel1: Channel<>
 }
-
-
 
 impl Board {
     pub fn take() -> Self {
@@ -51,7 +48,6 @@ impl Board {
         log!("Board init");
 
         // Reset previous configuration and enable external oscillator as HSE source (25 MHz)
-        let cp = cortex_m::Peripherals::take().expect("Cortex Peripherals not found");
         sys::Clk::new().reset().enable_ext_clock();
         let dp = pac::Peripherals::take().expect("Other Peripherals not found");
 
@@ -95,24 +91,10 @@ impl Board {
             )
         };
 
-        #[cfg(not(feature = "rm0455"))]
-            let disabled_dac = dp.DAC.dac(gpioa.pa4, ccdr.peripheral.DAC12);
-        #[cfg(feature = "rm0455")]
-            let disabled_dac = dp.DAC1.dac(gpioa.pa4, ccdr.peripheral.DAC1);
-
         // dac
-        let mut delay = cp.SYST.delay(ccdr.clocks);
-        let mut dac = disabled_dac.calibrate_buffer(&mut delay).enable();
-
         // Enable ULPI transceiver (GPIOJ4)
         let mut ulpi_reset = gpioj.pj4.into_push_pull_output();
         ulpi_reset.set_high();
-
-        dac.set_value(2058);
-        asm::bkpt();
-
-        dac.set_value(4095);
-        asm::bkpt();
 
         let usb = USB1_ULPI::new(
             dp.OTG1_HS_GLOBAL,
@@ -146,8 +128,7 @@ impl Board {
             led_red,
             led_green,
             led_blue,
-            usb,
-            dac,
+            usb
         }
     }
 }

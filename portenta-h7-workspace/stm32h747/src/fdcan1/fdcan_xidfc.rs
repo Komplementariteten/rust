@@ -1,0 +1,60 @@
+#[doc = "Register `FDCAN_XIDFC` reader"]
+pub type R = crate::R<FDCAN_XIDFC_SPEC>;
+#[doc = "Register `FDCAN_XIDFC` writer"]
+pub type W = crate::W<FDCAN_XIDFC_SPEC>;
+#[doc = "Field `FLESA` reader - Filter List Standard Start Address"]
+pub type FLESA_R = crate::FieldReader<u16>;
+#[doc = "Field `FLESA` writer - Filter List Standard Start Address"]
+pub type FLESA_W<'a, REG, const O: u8> = crate::FieldWriter<'a, REG, 14, O, u16>;
+#[doc = "Field `LSE` reader - List Size Extended"]
+pub type LSE_R = crate::FieldReader;
+#[doc = "Field `LSE` writer - List Size Extended"]
+pub type LSE_W<'a, REG, const O: u8> = crate::FieldWriter<'a, REG, 8, O>;
+impl R {
+    #[doc = "Bits 2:15 - Filter List Standard Start Address"]
+    #[inline(always)]
+    pub fn flesa(&self) -> FLESA_R {
+        FLESA_R::new(((self.bits >> 2) & 0x3fff) as u16)
+    }
+    #[doc = "Bits 16:23 - List Size Extended"]
+    #[inline(always)]
+    pub fn lse(&self) -> LSE_R {
+        LSE_R::new(((self.bits >> 16) & 0xff) as u8)
+    }
+}
+impl W {
+    #[doc = "Bits 2:15 - Filter List Standard Start Address"]
+    #[inline(always)]
+    #[must_use]
+    pub fn flesa(&mut self) -> FLESA_W<FDCAN_XIDFC_SPEC, 2> {
+        FLESA_W::new(self)
+    }
+    #[doc = "Bits 16:23 - List Size Extended"]
+    #[inline(always)]
+    #[must_use]
+    pub fn lse(&mut self) -> LSE_W<FDCAN_XIDFC_SPEC, 16> {
+        LSE_W::new(self)
+    }
+    #[doc = "Writes raw bits to the register."]
+    #[inline(always)]
+    pub unsafe fn bits(&mut self, bits: u32) -> &mut Self {
+        self.bits = bits;
+        self
+    }
+}
+#[doc = "FDCAN Extended ID Filter Configuration Register\n\nYou can [`read`](crate::generic::Reg::read) this register and get [`fdcan_xidfc::R`](R).  You can [`reset`](crate::generic::Reg::reset), [`write`](crate::generic::Reg::write), [`write_with_zero`](crate::generic::Reg::write_with_zero) this register using [`fdcan_xidfc::W`](W). You can also [`modify`](crate::generic::Reg::modify) this register. See [API](https://docs.rs/svd2rust/#read--modify--write-api)."]
+pub struct FDCAN_XIDFC_SPEC;
+impl crate::RegisterSpec for FDCAN_XIDFC_SPEC {
+    type Ux = u32;
+}
+#[doc = "`read()` method returns [`fdcan_xidfc::R`](R) reader structure"]
+impl crate::Readable for FDCAN_XIDFC_SPEC {}
+#[doc = "`write(|w| ..)` method takes [`fdcan_xidfc::W`](W) writer structure"]
+impl crate::Writable for FDCAN_XIDFC_SPEC {
+    const ZERO_TO_MODIFY_FIELDS_BITMAP: Self::Ux = 0;
+    const ONE_TO_MODIFY_FIELDS_BITMAP: Self::Ux = 0;
+}
+#[doc = "`reset()` method sets FDCAN_XIDFC to value 0"]
+impl crate::Resettable for FDCAN_XIDFC_SPEC {
+    const RESET_VALUE: Self::Ux = 0;
+}
