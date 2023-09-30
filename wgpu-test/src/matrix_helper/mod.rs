@@ -18,10 +18,7 @@ fn multiply_normal<const I: usize, const J: usize, const K:usize> (a: [[f32; I];
 fn multiply_simd<const I: usize, const J: usize, const K:usize>(a: [[f32; I]; J], b: [[f32; J]; K]) -> [[f32; I]; K] {
     let mut result = [[0f32; I]; K];
     let i_len = a[0].len();
-    match i_len {
-        1 => 0,
-        64 => f32x64
-    }
+
     return result;
 }
 
