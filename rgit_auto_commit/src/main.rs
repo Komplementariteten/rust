@@ -64,7 +64,9 @@ fn main() -> () {
                 Ok(push) => {
                     if push {
                         match push_to_remote(&repo) {
-                            Ok(_) => (),
+                            Ok(_) => {
+                                info!("{:?} updated", repo.path());
+                            },
                             Err(e) => {
                                 println!("{:?}", e);
                                 log_error!(e)
