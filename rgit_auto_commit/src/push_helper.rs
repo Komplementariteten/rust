@@ -1,4 +1,4 @@
-use git2::Repository;
+use git2::{Direction, Repository};
 use crate::auto_commit_errors::Errors;
 
 pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
@@ -13,7 +13,11 @@ pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
                 Ok(r) => r,
                 Err(e) => return Err(Errors::RemotesError(e))
             };
-            match remote.push(&["HEAD"], None) {
+            let mut remote_connection = match remote.connect_auth(Direction::Push, None, None) {
+                Ok(c) => c,
+                Err(e) => return Err(Errors::RemotesError(e))
+            };
+            match remote_connection.remote().push(&["HEAD"], None) {
                 Ok(p) => return Ok(p),
                 Err(e) => return Err(Errors::PushError(e))
             };
