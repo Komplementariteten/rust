@@ -9,7 +9,7 @@ pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
     if repo.state() == RepositoryState::Clean {
         return Ok(())
     }
-    
+
     let head_name = match repo.head() {
         Ok(h) => h.name().unwrap().to_string(),
         Err(e) => return Err(Errors::ReferenceError("HEAD REFERENCE not found".to_string()))
