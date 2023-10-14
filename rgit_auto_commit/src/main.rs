@@ -1,5 +1,5 @@
 use std::env::current_exe;
-use log::info;
+use log::{error, info};
 use structopt::StructOpt;
 use crate::cli_args::CliArgs;
 use crate::commit_helper::{process_repository, search_repositories};
@@ -14,14 +14,14 @@ mod cli_args;
 
 macro_rules! log_error_and_return {
     ($arg:ident) => {{
-        info!("Fatal Error: {:?}",$arg);
+        error!("Fatal Error: {:?}",$arg);
         return ();
     }};
 }
 
 macro_rules! log_error {
     ($arg:ident) => {{
-        info!("Error: {:?}",$arg);
+        error!("Error: {:?}",$arg);
     }};
 }
 
