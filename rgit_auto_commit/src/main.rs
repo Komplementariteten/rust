@@ -68,8 +68,8 @@ fn main() -> () {
                                 info!("{:?} updated", repo.path());
                             },
                             Err(e) => {
-                                println!("{:?}", e);
-                                log_error!(e)
+                                let msg = format!("{:?} => {:?}", repo.path(), e);
+                                log_error!(msg)
                             }
                         }
                     }

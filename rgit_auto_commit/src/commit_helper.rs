@@ -1,5 +1,6 @@
+use std::fs::read_dir;
 use std::path::Path;
-use git2::{Repository, Status, StatusEntry, StatusOptions};
+use git2::{Index, IndexAddOption, Repository, Status, StatusEntry, StatusOptions};
 use log::{debug, info};
 use walkdir::WalkDir;
 use chrono::{Local};
@@ -116,17 +117,27 @@ fn add_to_index(repo: &Repository, status: &StatusEntry) -> Result<(), Errors> {
         Ok(i) => i,
         Err(e) => return Err(Errors::IndexError(e))
     };
-    let path_str = match status.path() {
-        Some(p) => p,
+    let path = match status.path() {
+        Some(p) => Path::new(p),
         None => return Err(Errors::IndexPathError)
     };
-    return match index.add_path(Path::new(path_str)) {
+    return match index.add_path(path) {
+        Ok(_) => match index.write() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Errors::IndexError(e))
+        },
+        Err(e) => add_all_to_index(&mut index)
+    };
+}
+
+fn add_all_to_index(index: &mut Index) -> Result<(), Errors> {
+    match index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None) {
         Ok(_) => match index.write() {
             Ok(_) => Ok(()),
             Err(e) => Err(Errors::IndexError(e))
         },
         Err(e) => Err(Errors::IndexError(e))
-    };
+    }
 }
 
 #[cfg(test)]
