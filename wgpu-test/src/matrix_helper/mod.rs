@@ -1,7 +1,5 @@
 extern crate test;
 
-use std::simd::f32x64;
-
 #[allow(dead_code)]
 fn multiply_normal<const I: usize, const J: usize, const K:usize> (a: [[f32; I]; J], b: [[f32; J]; K]) -> [[f32; I]; K] {
     let mut result = [[0f32; I]; K];
@@ -14,6 +12,8 @@ fn multiply_normal<const I: usize, const J: usize, const K:usize> (a: [[f32; I];
     }
     return result;
 }
+
+
 
 // https://medium.com/@Razican/learning-simd-with-rust-by-finding-planets-b85ccfb724c3
 // https://levelup.gitconnected.com/learning-rust-simd-3305e576b1ab

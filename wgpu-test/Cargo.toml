@@ -6,7 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "0.8.5"
-env_logger = "0.10.0"
-log = "0.4.20"
-wgpu = "0.17.1"
+rand = "*"
+env_logger = "*"
+log = "*"
+wgpu = "*"
+bytemuck = "*"
+futures-intrusive = "*"
+num = "*"
+
+[dev-dependencies]
+tokio-test = "0.4.3"

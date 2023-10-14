@@ -1,0 +1,18 @@
+[package]
+name = "rgit_auto_commit"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+git2 = { version = "0.18.1", features = ["vendored-libgit2", "vendored-openssl"], default-features = true }
+log = "0.4.20"
+systemd-journal-logger = "2.0.0"
+walkdir = "2.4.0"
+structopt = "0.3.26"
+chrono = "0.4.31"
+
+
+[features]
+# git2=["vendored-libgit2", "vendored-openssl"]
