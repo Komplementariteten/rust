@@ -1,10 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use git2::{Repository, Status, StatusEntry, StatusOptions};
 use log::{debug, info};
 use walkdir::WalkDir;
+use chrono::{Local};
 use crate::auto_commit_errors::Errors;
 
-pub (crate)fn search_repositories<P: AsRef<Path>>(base_dir: P) -> Result<Vec<PathBuf>, Errors>{
+pub (crate)fn search_repositories<P: AsRef<Path>>(base_dir: P) -> Result<Vec<Repository>, Errors>{
     if base_dir.as_ref().exists() {
         debug!("searching Repositories under {}", base_dir.as_ref().to_str().unwrap())
     } else {
@@ -13,17 +14,17 @@ pub (crate)fn search_repositories<P: AsRef<Path>>(base_dir: P) -> Result<Vec<Pat
 
     let mut pathes = Vec::new();
     for entry in WalkDir::new(base_dir).follow_links(false).into_iter().filter_map(Result::ok).filter(| e | e.file_type().is_dir() && e.path().ends_with(".git")) {
-        pathes.push(entry.path().parent().unwrap().to_path_buf());
+        let repo = match Repository::open(entry.path().parent().unwrap().to_path_buf()) {
+            Ok(r) => r,
+            Err(e) => return Err(Errors::OpenRepositoryError(e))
+        };
+        pathes.push(repo);
     }
 
     return Ok(pathes);
 }
 
-pub (crate)fn process_repository(path: PathBuf) -> Result<(), Errors>{
-    let repo = match Repository::open(path) {
-        Ok(r) => r,
-        Err(e) => return Err(Errors::OpenRepositoryError(e))
-    };
+pub (crate)fn process_repository(repo: &Repository) -> Result<(), Errors>{
 
     let mut option = StatusOptions::new();
     option.include_ignored(false);
@@ -55,7 +56,6 @@ pub (crate)fn process_repository(path: PathBuf) -> Result<(), Errors>{
             info!("{:?}", r.err().unwrap())
         } else {
             commit_pending = true;
-            println!("{:?}: {:?}",state.status(), state.path().unwrap());
         }
     }
 
@@ -78,19 +78,17 @@ pub (crate)fn process_repository(path: PathBuf) -> Result<(), Errors>{
 
         let head = match repo.head() {
             Ok(h_oid) => h_oid.target().unwrap(),
-            Err(e) => return Err(Errors::ReferenceError("HEAD REF not found".to_string()))
+            Err(_e) => return Err(Errors::ReferenceError("HEAD REF not found".to_string()))
         };
         let parent = repo.find_commit(head).unwrap();
 
-        match repo.commit(Some("HEAD"), &sig, &sig, "Auto commit", &tree, &[&parent]) {
+        match repo.commit(Some("HEAD"), &sig, &sig, format!("Auto commit @{}", Local::now().format("%d-%m-%Y %H:%M")).as_str(), &tree, &[&parent]) {
             Ok(c) => {
                 info!("auto-commit:{} for {}", c, repo.path().to_str().unwrap());
-                return Ok(())
             },
             Err(e) => return Err(Errors::CommitError(e))
         }
     }
-
     Ok(())
 }
 
@@ -133,11 +131,21 @@ fn add_to_index(repo: &Repository, status: &StatusEntry) -> Result<(), Errors> {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use crate::git_helper::{process_repository, search_repositories};
+    use chrono::{Local};
+    use git2::Repository;
+    use crate::commit_helper::{process_repository, search_repositories};
+
+    #[test]
+    fn date_time_test() {
+        println!("{}", Local::now().to_rfc2822());
+        println!("{}", Local::now().to_rfc3339());
+        println!("{}", Local::now().format("%d-%m-%Y %H:%M"));
+    }
 
     #[test]
     fn process_repository_ok() {
-        let r = process_repository(Path::new("/home/me/Workspace/Github/cpp").to_path_buf());
+        let repo = Repository::open("/home/me/Workspace/Github/cpp").unwrap();
+        let r = process_repository(&repo);
         assert!(r.is_ok());
     }
 

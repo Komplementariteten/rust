@@ -63,7 +63,10 @@ fn main() -> () {
             match process_repository(&repo) {
                 Ok(_) => match push_to_remote(&repo) {
                     Ok(_) => (),
-                    Err(e) => log_error!(e)
+                    Err(e) => {
+                        println!("{:?}", e);
+                        log_error!(e)
+                    }
                 },
                 Err(e) => log_error!(e)
             };
