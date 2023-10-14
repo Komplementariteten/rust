@@ -61,11 +61,15 @@ fn main() -> () {
         };
         for repo in repository_paths {
             match process_repository(&repo) {
-                Ok(_) => match push_to_remote(&repo) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        println!("{:?}", e);
-                        log_error!(e)
+                Ok(push) => {
+                    if push {
+                        match push_to_remote(&repo) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("{:?}", e);
+                                log_error!(e)
+                            }
+                        }
                     }
                 },
                 Err(e) => log_error!(e)

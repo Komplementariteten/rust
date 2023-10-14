@@ -24,7 +24,7 @@ pub (crate)fn search_repositories<P: AsRef<Path>>(base_dir: P) -> Result<Vec<Rep
     return Ok(pathes);
 }
 
-pub (crate)fn process_repository(repo: &Repository) -> Result<(), Errors>{
+pub (crate)fn process_repository(repo: &Repository) -> Result<bool, Errors>{
 
     let mut option = StatusOptions::new();
     option.include_ignored(false);
@@ -85,11 +85,12 @@ pub (crate)fn process_repository(repo: &Repository) -> Result<(), Errors>{
         match repo.commit(Some("HEAD"), &sig, &sig, format!("Auto commit @{}", Local::now().format("%d-%m-%Y %H:%M")).as_str(), &tree, &[&parent]) {
             Ok(c) => {
                 info!("auto-commit:{} for {}", c, repo.path().to_str().unwrap());
+                return Ok(true)
             },
             Err(e) => return Err(Errors::CommitError(e))
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 fn delete_from_index(repo: &Repository, status: &StatusEntry) -> Result<(), Errors> {

@@ -4,12 +4,6 @@ use git2::{Cred, Direction, PushOptions, RemoteCallbacks, Repository, Repository
 use crate::auto_commit_errors::Errors;
 
 pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
-
-    println!("{:?}, is: {:?}", repo.path(), repo.state());
-    if repo.state() == RepositoryState::Clean {
-        return Ok(())
-    }
-
     let head_name = match repo.head() {
         Ok(h) => h.name().unwrap().to_string(),
         Err(e) => return Err(Errors::ReferenceError("HEAD REFERENCE not found".to_string()))
