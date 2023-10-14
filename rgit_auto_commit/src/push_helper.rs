@@ -1,12 +1,12 @@
 use std::env;
 use std::path::Path;
-use git2::{Cred, Direction, PushOptions, RemoteCallbacks, Repository, RepositoryState};
+use git2::{Cred, Direction, PushOptions, RemoteCallbacks, Repository};
 use crate::auto_commit_errors::Errors;
 
 pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
     let head_name = match repo.head() {
         Ok(h) => h.name().unwrap().to_string(),
-        Err(e) => return Err(Errors::ReferenceError("HEAD REFERENCE not found".to_string()))
+        Err(_e) => return Err(Errors::ReferenceError("HEAD REFERENCE not found".to_string()))
     };
 
     let mut auth_callbacks = RemoteCallbacks::new();
@@ -23,7 +23,7 @@ pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
     });
 
     let mut push_callbacks = RemoteCallbacks::new();
-    push_callbacks.push_update_reference(| refname, status | {
+    push_callbacks.push_update_reference(| refname, _status | {
         assert_eq!(refname, head_name.as_str());
         Ok(())
     });
@@ -43,24 +43,4 @@ pub(crate) fn push_to_remote(repo: &Repository) -> Result<(), Errors> {
         Ok(p) => return Ok(p),
         Err(e) => return Err(Errors::PushError(e))
     };
-
-    /* for remote_opt in remotes.iter() {
-        if let Some(remote_str) = remote_opt {
-            let remote_callback = RemoteCallbacks::new();
-            let mut remote = match repo.find_remote(remote_str) {
-                Ok(r) => r,
-                Err(e) => return Err(Errors::RemotesError(e))
-            };
-            let mut remote_connection = match remote.connect_auth(Direction::Push, Some(remote_callback), None) {
-                Ok(c) => c,
-                Err(e) => return Err(Errors::RemotesError(e))
-            };
-            match remote_connection.remote().push(&[], None) {
-                Ok(p) => return Ok(p),
-                Err(e) => return Err(Errors::PushError(e))
-            };
-        }
-    } */
-
-    Ok(())
 }

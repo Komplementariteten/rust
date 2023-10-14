@@ -1,4 +1,3 @@
-use std::fs::read_dir;
 use std::path::Path;
 use git2::{Index, IndexAddOption, Repository, Status, StatusEntry, StatusOptions};
 use log::{debug, info};
@@ -126,7 +125,7 @@ fn add_to_index(repo: &Repository, status: &StatusEntry) -> Result<(), Errors> {
             Ok(_) => Ok(()),
             Err(e) => Err(Errors::IndexError(e))
         },
-        Err(e) => add_all_to_index(&mut index)
+        Err(_e) => add_all_to_index(&mut index)
     };
 }
 
