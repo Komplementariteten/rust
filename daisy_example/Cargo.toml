@@ -1,0 +1,10 @@
+[package]
+name = "daisy_example"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# daisy = { version="0.8.0", features = ["seed_1_1"] }
+daisy = { git = "https://github.com/zlosynth/daisy.git", branch = "seed_1_2" }
