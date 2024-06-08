@@ -1,0 +1,9 @@
+[package]
+name = "libcam_app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libcamera = "0.2.3"
+image = "0.25.1"
+imageproc = "0.25.0"
