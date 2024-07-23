@@ -1,12 +1,11 @@
 use std::error::Error;
+use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::atomic::Ordering::Relaxed;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
-use log::error;
+use log::{debug, error, info};
 
 fn main() {
 
@@ -22,15 +21,25 @@ fn main() {
             Ok(stream) => {
                 thread::spawn(move || {
                     THREAD_SYNC.fetch_add(1, Ordering::SeqCst);
-                    let client_stream = match init_stream(stream) {
+                    let mut client_stream = match init_stream(stream) {
                         Ok(s) => s,
                         Err(e) => {
                             error!("Error in handling Client Connection: {}", e);
                             return;
                         }
                     };
+                    info!("Client connected");
                     while !STOP.load(Relaxed) {
-                        read_stream(&client_stream);
+                        let bytes = match read_stream(&mut client_stream) {
+                            Ok(b_vec) => b_vec,
+                            Err(e) => {
+                                error!("Error reading from Stream: {}", e);
+                                break;
+                            }
+                        };
+                        if bytes.len() > 0 {
+                            debug!("{} bytes read", bytes.len());
+                        }
                     }
                     THREAD_SYNC.fetch_sub(1, Ordering::SeqCst);
                 });
@@ -42,8 +51,12 @@ fn main() {
     }
 }
 
-fn read_stream(stream: &TcpStream) {
-
+fn read_stream(stream: &mut TcpStream) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut rx_bytes = [0u8; 128];
+    match stream.read(&mut rx_bytes) {
+        Ok(bytes_read) => Ok(rx_bytes[..bytes_read].to_vec()),
+        Err(e) => Err(Box::new(e))
+    }
 }
 
 fn init_stream(stream: TcpStream) -> Result<TcpStream, Box<dyn Error>>{
@@ -67,7 +80,8 @@ fn init_stream(stream: TcpStream) -> Result<TcpStream, Box<dyn Error>>{
         Err(e) => return Err(Box::new(e)),
     }
 
+    debug!("Socket Opts set");
 
-    Ok(())
+    Ok(stream)
 
 }
