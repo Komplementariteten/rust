@@ -1,0 +1,24 @@
+[package]
+name = "ffilib"
+edition = "2021"
+publish = true
+version.workspace = true
+authors.workspace = true
+
+[lib]
+name = "ffilib"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+uniffi = { version = "0.28.1", features = ["scaffolding-ffi-buffer-fns"]}
+rand = "0.8.5"
+thiserror = "1.0.63"
+
+[build-dependencies]
+uniffi = { version = "0.28.1", features = ["build", "scaffolding-ffi-buffer-fns"]}
+
+
+[dev-dependencies]
+uniffi = { version = "0.28.1", features = ["bindgen-tests"]}
+
+

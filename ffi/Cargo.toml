@@ -1,0 +1,13 @@
+[package]
+name = "ffi"
+version = "0.1.0"
+edition = "2021"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Komplementariteten <os@ventose.cc>"]
+
+[dependencies]
+
+[workspace]
+members = [ "interoptopusffi","uniffilib"]

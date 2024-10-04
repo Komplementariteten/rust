@@ -1,0 +1,11 @@
+[Error]
+enum ApiError {
+        "SizeError"
+};
+
+namespace ffilib {
+        [Throws=ApiError]
+        sequence<double> add_a_to_b_copy(sequence<double> a, sequence<double> b);
+
+        sequence<double> gen_random_copy(u64 size);
+};
