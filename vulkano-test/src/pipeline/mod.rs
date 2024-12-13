@@ -42,7 +42,7 @@ pub struct PiplineBuilderInfo {
 
 impl PipelineBuilder {
     pub fn new<T>(info: PiplineBuilderInfo) -> Self {
-        let bufferDefinition = BuffersDefinition::new().vertex::<T>();
+        let buffer_definition = BuffersDefinition::new().vertex::<T>();
         PipelineBuilder {
             buffer_definition: bufferDefinition,
             builder_info: info,

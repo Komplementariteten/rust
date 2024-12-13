@@ -6,19 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-vulkano = "0.33.0"
-vulkano-shaders = "0.33.0"
-winit = "0.28.6"
-vulkano-win = "0.32.0"
-vulkano-util = "0.32.0"
-bytemuck = { version="1.7.3", features = ["derive", "extern_crate_std", "min_const_generics"] }
+vulkano = "0.34.1"
+vulkano-shaders = "0.34.0"
+winit = "0.30.5"
+vulkano-win = "0.34.0"
+vulkano-util = "0.34.1"
+bytemuck = { version="1.20.0", features = ["derive", "extern_crate_std", "min_const_generics"] }
 cgmath = "0.18.0"
-png = "0.17.7"
-serde = {version="1.0", features=["derive"] }
-ron = "0.8.0"
-rand = "0.8.5"
-glium = "0.32.1"
-image = "0.24.5"
+png = "0.17.15"
+serde = {version="1.0.216", features=["derive"] }
+ron = "0.9.0-alpha.0"
+rand = "0.9.0-beta.1"
+glium = "0.36.0"
+image = "0.25.5"
 
 [profile.dev]
 opt-level=1
