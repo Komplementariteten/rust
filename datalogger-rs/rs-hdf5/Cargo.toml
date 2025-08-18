@@ -1,0 +1,9 @@
+[package]
+name = "rs-hdf5"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hdf5 = { package = "hdf5-metno", version = "0.10.0"}
+chrono = "0.4.41"
+ndarray = "0.16.1"
