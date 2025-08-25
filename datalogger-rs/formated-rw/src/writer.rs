@@ -8,12 +8,12 @@ pub trait Formater {
     
     fn read_buf<const W: usize>(&mut self, data: &mut impl Read, sep: &[u8; W], buf: &mut Vec<u8>) -> Result<usize> {
         let mut window = [0u8; W];
-        if !match data.read_exact(&mut window) {
+        /* if !match data.read_exact(&mut window) {
             Ok(_) => true,
             Err(_) => false,
         } {
             return Ok(0);
-        }
+        }*/
         let mut next = [0u8; 1];
         let mut i: usize = 1;
         let mut t = vec![];
@@ -158,8 +158,7 @@ impl<TF: Formater> IoWrite for FormatedWriter<TF> {
                     v if 0 < v => {
                         if processed_bytes >= remaining {
                             let used_from_buffer = processed_bytes - remaining;
-                            self._r.write(&buf[used_from_buffer..])?;
-                        } else {
+                            self._r.write(&buf[used_from_buffer..]).expect("failed to write remaining");
                         }
                     },
                     0 => {

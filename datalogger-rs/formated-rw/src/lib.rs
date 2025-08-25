@@ -1,6 +1,3 @@
-#![feature(mpmc_channel)]
-#![feature(ascii_char)]
-
 mod writer;
 mod formater;
 
