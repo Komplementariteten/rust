@@ -1,0 +1,10 @@
+[package]
+name = "bevy_learn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.16.1"
+
+[workspace]
+members = ["nations_lib"]
