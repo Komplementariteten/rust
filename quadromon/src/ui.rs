@@ -116,7 +116,7 @@ impl Widget for &mut App {
     where
         Self: Sized,
     {
-        let [header_area, main_area, footer_area] = layout::Layout::vertical([
+        let [header_area, main_area, footer_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Fill(1),
             Constraint::Length(3),
