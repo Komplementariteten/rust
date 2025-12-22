@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use crate::consts::HIST_SIZE;
 use crate::store::StoreItem;
 
 pub struct History{
-    pub individual_values: HashMap<String, u32>,
+    pub max_values: HashMap<String, u64>,
     pub history: HashMap<String, Vec<u64>>
 }
 
@@ -13,18 +14,25 @@ impl History {
           
         let keys = stored.iter().map(| s| s.item_name.clone()).collect::<HashSet<String>>();
         for key in keys {
-            let max = stored.iter().filter(|s| s.item_name == key).map(| m | m.value).max().unwrap_or(0);
+            let values = stored.iter().filter(|s| s.item_name == key).map(| m | m.value as u64);
+            let max = values.clone().max().unwrap_or(0);
+            let total_len = values.clone().count();
+            let len = match total_len >= HIST_SIZE {
+                true => HIST_SIZE,
+                false => total_len
+            };
+            let last_thrity = values.collect::<Vec<u64>>()[total_len - len..total_len].to_vec();
+            hist_map.insert(key.clone(), last_thrity);
             map.insert(key, max);
         }
 
         History {
-            individual_values: map
+            max_values: map,
+            history: hist_map
         }
     }
 
     pub(crate) fn get_history(&self) -> HashMap<String, Vec<u64>> {
-        let mut map = HashMap::new();
-        for (k, v) in &self.individ
-        HashMap::from([("ABC".to_string(), vec![1, 2, 3]), ("DEF".to_string(), vec![10,11,12])])
+        self.history.clone()
     }
 }

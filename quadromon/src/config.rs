@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use dirs;
 use toml;
-use crate::consts::{APP_CONFIG_FILE, APP_NAME};
+use crate::consts::{APP_CONFIG_FILE, APP_NAME, FLOW_SPEED_NAME, PUMP_PWM_NAME, PUMP_SPEED_NAME, TEMPERATURE_1_NAME, TEMP_SENSOR_NAME};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct Config {
@@ -48,10 +48,10 @@ impl SensorConfig {
             module_name: "quadro".to_string(),
             base_path: PathBuf::from("/sys/class/hwmon/hwmon4/"),
             sensors: vec![Sensor {
-               name: "Flow speed [dL/h]".to_string(),
+               name: FLOW_SPEED_NAME.to_string(),
                 file: PathBuf::from("fan5_input"),
             }, Sensor {
-                name: "Sensor 1".to_string(),
+                name: TEMP_SENSOR_NAME.to_string(),
                 file: PathBuf::from("temp1_input"),
             } ]
         }
@@ -62,7 +62,7 @@ impl SensorConfig {
                 module_name: "nct6687".to_string(),
                 base_path: PathBuf::from("/sys/class/hwmon/hwmon7/"),
                 sensors: vec![Sensor {
-                    name: "Pump Fan".to_string(),
+                    name: PUMP_SPEED_NAME.to_string(),
                     file: PathBuf::from("fan2_input"),
                 }]
             }
@@ -97,10 +97,3 @@ pub(crate) fn load_config() -> Config{
     config
 }
 
-pub(crate) fn get_ui_name(modname: &str) -> String {
-    match modname.trim() {
-        "Sensor 1" => "Temperatur S1".to_string(),
-        "Pump Fan" => "Pumpe PWM".to_string(),
-        _ => modname.to_string()
-    }
-}

@@ -1,6 +1,6 @@
-use crate::config;
 use crate::config::{Sensor, SensorConfig};
 use crate::consts::HWMON_CLASS_PATH;
+use crate::util::Util;
 use regex::{Regex, RegexBuilder};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,7 +22,7 @@ impl ReadResult {
     }
 
     pub fn get_ui_name(&self) -> String {
-        config::get_ui_name(&self.name)
+        Util::get_ui_name(&self.name)
     }
 
     pub fn value_as_string(&self) -> String {

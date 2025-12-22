@@ -1,53 +1,88 @@
+use crate::consts::{AVG_FLOW, HIST_SIZE, PUMP_FLOW_REL};
+use crate::history::History;
+use crate::stats::Stats;
 use crate::store::StoreItem;
+use crate::util::Util;
+use chrono::{DateTime, Local};
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::*;
 use ratatui::style::palette::tailwind::SLATE;
-use ratatui::style::Style;
+use ratatui::style::{Style, Styled};
 use ratatui::text::{Line, Text, ToSpan};
-use ratatui::widgets::{Block, Borders, Chart, HighlightSpacing, List, ListItem, ListState, Sparkline};
-use ratatui::{layout, layout::Layout, DefaultTerminal, Frame};
+use ratatui::widgets::{
+    Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, Sparkline,
+};
+use ratatui::{layout::Layout, DefaultTerminal, Frame};
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
-use crate::history::History;
 
 struct UiState {
-    latest_update: HashMap<String, u32>,
+    latest_update: HashMap<String, String>,
     history: HashMap<String, Vec<u64>>,
 }
 
 impl UiState {
     pub fn new(h: &History) -> UiState {
         UiState {
-            latest_update: h.individual_values.clone(),
+            latest_update: Util::format_map(&h.max_values),
             history: h.get_history(),
         }
     }
 }
 
-pub struct App {
+pub struct App<'a> {
     state: UiState,
     current_value_state: ListState,
+    _h: &'a History
 }
 
-impl App {
+impl App<'_> {
     fn new(h: &History) -> App {
         App {
             state: UiState::new(h),
             current_value_state: ListState::default(),
+            _h: h
         }
     }
 
     fn update_state(&mut self, v: StoreItem) {
+        let formated = Util::format_u32(&v.item_name, v.value);
         self.state
             .latest_update
-            .entry(v.item_name)
-            .and_modify(|x| *x = v.value)
-            .or_insert(v.value);
+            .entry(v.item_name.clone())
+            .and_modify(|x| *x = formated.clone())
+            .or_insert(formated);
+        if self.state.history.contains_key(&v.item_name) {
+            let vec = self.state.history.get_mut(&v.item_name).unwrap();
+            if vec.len() >= HIST_SIZE {
+                vec.remove(0);
+            }
+            vec.push(v.value as u64);
+        }
+        self.update_stats();
+        self.update_footer();
     }
+
+    fn update_stats(&mut self) {
+        let rel = Stats::pump_flow_rel(&self.state.history);
+        let avg = Stats::avg_flow(&self.state.history);
+        self.state
+            .latest_update
+            .entry(PUMP_FLOW_REL.to_string())
+            .and_modify(|x| *x = rel.to_string())
+            .or_insert(avg.to_string());
+        self.state
+            .latest_update
+            .entry(AVG_FLOW.to_string())
+            .and_modify(|x| *x = avg.to_string())
+            .or_insert(avg.to_string());
+    }
+
+    fn update_footer(&self) {}
 
     fn draw(&mut self, f: &mut Frame) {
         f.render_widget(self, f.area())
@@ -64,7 +99,9 @@ impl App {
                     app.draw(f);
                 })
                 .expect("ui drawing failed");
-            if let Ok(ok) = event::poll(Duration::from_millis(10)) && ok {
+            if let Ok(ok) = event::poll(Duration::from_millis(10))
+                && ok
+            {
                 match event::read().expect("event failed") {
                     Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                         KeyCode::Esc => return,
@@ -100,15 +137,29 @@ impl App {
 
     fn render_spark_line(&mut self, areas: &Rect, buf: &mut Buffer, name: &str) {
         let data = self.state.history.get(name).cloned().unwrap_or_default();
-        let spark_line = Sparkline::default().block(Block::new().borders(Borders::LEFT | Borders::BOTTOM).title(name)).data(&data).style(Style::default().fg(Color::Green));
+        let spark_line = Sparkline::default()
+            .block(
+                Block::new()
+                    .borders(Borders::LEFT | Borders::BOTTOM)
+                    .title(name),
+            )
+            .data(&data)
+            .style(Style::default().fg(Color::Green));
         Widget::render(spark_line, *areas, buf);
     }
 
-    fn render_header(&self, area: Rect, buf: &mut Buffer) {
+    fn render_header(&self, area: Rect, buf: &mut Buffer) {}
 
+    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
+        let b = Block::new()
+            .title(Line::raw("Updated").centered())
+            .borders(Borders::ALL);
+        let time: DateTime<Local> = Local::now();
+        let p = Paragraph::new(time.format("%H:%M:%S").to_string())
+            .style(Style::default().fg(Color::Gray))
+            .block(b);
+        Widget::render(p, area, buf);
     }
-
-    fn render_footer() {}
 }
 
 impl Widget for &mut App {
@@ -131,13 +182,19 @@ impl Widget for &mut App {
         for i in 0..=line_count {
             constraints.push(Constraint::Ratio(1, line_count));
         }
-        let chunks = Layout::default().direction(Direction::Vertical).constraints(constraints).split(dashboard_area);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(dashboard_area);
 
         self.render_current_values(latest_area, buf);
+        let mut index = 0;
         for line_name in self.state.history.clone().keys() {
-             if let Some(rect) = chunks.iter().next() {
-                 self.render_spark_line(rect, buf, line_name);
-             }
+            // if let Some(rect) = chunks[index] {
+            self.render_spark_line(&chunks[index], buf, line_name);
+            //}
+            index += 1;
         }
+        self.render_footer(footer_area, buf);
     }
 }

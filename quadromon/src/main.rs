@@ -12,6 +12,7 @@ mod store;
 mod ui;
 mod util;
 mod history;
+mod stats;
 
 fn main() -> Result<(), io::Error> {
     let config_mutex = Arc::new(Mutex::new(config::load_config()));
