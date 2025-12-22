@@ -20,3 +20,6 @@ pub(crate) const AVG_FLOW: &str = "∅ Flow";
 pub(crate) const HIST_SIZE: usize = 80;
 
 pub(crate) const PULSE_PER_LITER: f32 = 169.;
+
+pub(crate) const STORAGE_SIZE: usize = 400;
+pub(crate) const HIST_BIN: usize = 40;

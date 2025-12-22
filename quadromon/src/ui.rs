@@ -1,5 +1,5 @@
 use crate::consts::{AVG_FLOW, HIST_SIZE, PUMP_FLOW_REL};
-use crate::history::History;
+use crate::data_hub::DataHub;
 use crate::stats::Stats;
 use crate::store::StoreItem;
 use crate::util::Util;
@@ -10,7 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::*;
 use ratatui::style::palette::tailwind::SLATE;
-use ratatui::style::{Style, Styled};
+use ratatui::style::{Style};
 use ratatui::text::{Line, Text, ToSpan};
 use ratatui::widgets::{
     Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, Sparkline,
@@ -18,34 +18,33 @@ use ratatui::widgets::{
 use ratatui::{layout::Layout, DefaultTerminal, Frame};
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 struct UiState {
     latest_update: HashMap<String, String>,
-    history: HashMap<String, Vec<u64>>,
 }
 
 impl UiState {
-    pub fn new(h: &History) -> UiState {
+    pub fn new(max_values: HashMap<String, u64>) -> UiState {
         UiState {
-            latest_update: Util::format_map(&h.max_values),
-            history: h.get_history(),
+            latest_update: Util::format_map(max_values),
         }
     }
 }
 
-pub struct App<'a> {
+pub struct App {
     state: UiState,
     current_value_state: ListState,
-    _h: &'a History
+    h: Arc<Mutex<DataHub>>,
 }
 
-impl App<'_> {
-    fn new(h: &History) -> App {
+impl App {
+    fn new(h: &Arc<Mutex<DataHub>>) -> App {
         App {
-            state: UiState::new(h),
+            state: UiState::new(h.lock().unwrap().max_values.clone()),
             current_value_state: ListState::default(),
-            _h: h
+            h: h.clone(),
         }
     }
 
@@ -56,20 +55,13 @@ impl App<'_> {
             .entry(v.item_name.clone())
             .and_modify(|x| *x = formated.clone())
             .or_insert(formated);
-        if self.state.history.contains_key(&v.item_name) {
-            let vec = self.state.history.get_mut(&v.item_name).unwrap();
-            if vec.len() >= HIST_SIZE {
-                vec.remove(0);
-            }
-            vec.push(v.value as u64);
-        }
         self.update_stats();
-        self.update_footer();
     }
 
     fn update_stats(&mut self) {
-        let rel = Stats::pump_flow_rel(&self.state.history);
-        let avg = Stats::avg_flow(&self.state.history);
+        let h = self.h.lock().unwrap().get_history(HIST_SIZE);
+        let rel = Stats::pump_flow_rel(&h);
+        let avg = Stats::avg_flow(&h);
         self.state
             .latest_update
             .entry(PUMP_FLOW_REL.to_string())
@@ -82,13 +74,15 @@ impl App<'_> {
             .or_insert(avg.to_string());
     }
 
-    fn update_footer(&self) {}
-
     fn draw(&mut self, f: &mut Frame) {
         f.render_widget(self, f.area())
     }
 
-    pub(crate) fn run(mut terminal: DefaultTerminal, rx: Receiver<StoreItem>, h: &History) {
+    pub(crate) fn run(
+        mut terminal: DefaultTerminal,
+        rx: Receiver<StoreItem>,
+        h: &Arc<Mutex<DataHub>>,
+    ) {
         let mut app = App::new(h);
         loop {
             if let Ok(update) = rx.try_recv() {
@@ -136,14 +130,18 @@ impl App<'_> {
     }
 
     fn render_spark_line(&mut self, areas: &Rect, buf: &mut Buffer, name: &str) {
-        let data = self.state.history.get(name).cloned().unwrap_or_default();
+        let h = self.h.lock().unwrap().get_history(HIST_SIZE);
+        if !h.contains_key(name) {
+            return;
+        }
+        let data = h.get(name).unwrap();
         let spark_line = Sparkline::default()
             .block(
                 Block::new()
                     .borders(Borders::LEFT | Borders::BOTTOM)
                     .title(name),
             )
-            .data(&data)
+            .data(data)
             .style(Style::default().fg(Color::Green));
         Widget::render(spark_line, *areas, buf);
     }
@@ -167,6 +165,7 @@ impl Widget for &mut App {
     where
         Self: Sized,
     {
+        let h = self.h.lock().unwrap().get_history(HIST_SIZE);
         let [header_area, main_area, footer_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Fill(1),
@@ -177,9 +176,9 @@ impl Widget for &mut App {
         let [dashboard_area, latest_area] =
             Layout::horizontal([Constraint::Fill(1), Constraint::Percentage(30)]).areas(main_area);
 
-        let line_count = self.state.history.keys().count() as u32;
+        let line_count = h.keys().count() as u32;
         let mut constraints = vec![];
-        for i in 0..=line_count {
+        for _ in 0..=line_count {
             constraints.push(Constraint::Ratio(1, line_count));
         }
         let chunks = Layout::default()
@@ -189,12 +188,13 @@ impl Widget for &mut App {
 
         self.render_current_values(latest_area, buf);
         let mut index = 0;
-        for line_name in self.state.history.clone().keys() {
+        for line_name in h.keys() {
             // if let Some(rect) = chunks[index] {
             self.render_spark_line(&chunks[index], buf, line_name);
             //}
             index += 1;
         }
         self.render_footer(footer_area, buf);
+        self.render_header(header_area, buf);
     }
 }

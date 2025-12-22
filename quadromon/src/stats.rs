@@ -5,8 +5,8 @@ pub(crate) struct Stats {}
 
 impl Stats {
     pub(crate) fn pump_flow_rel(h: &HashMap<String, Vec<u64>>) -> f32 {
-        let mut latest_flow: u64 = 0;
-        let mut latest_pump: u64 = 0;
+        let latest_flow;
+        let latest_pump;
 
         if let Some(l) = Self::get_latest(FLOW_SPEED_NAME, h) {
             latest_flow = l;
