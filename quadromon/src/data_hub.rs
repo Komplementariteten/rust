@@ -2,7 +2,7 @@ use crate::consts::{HIST_SIZE, STORAGE_SIZE};
 use crate::sensor_reader::ReadResult;
 use crate::store;
 use crate::store::StoreItem;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::mpsc::Sender;
 
 pub struct DataHub {
@@ -18,7 +18,6 @@ impl DataHub {
 
         let mut map = HashMap::new();
         let mut hist_map = HashMap::new();
-        let stored = Self::rotate(stored);
 
         let keys = stored
             .iter()
@@ -48,6 +47,11 @@ impl DataHub {
         }
     }
 
+    pub(crate) fn sync(&mut self) {
+        let items = self.rotate();
+        store::store(&items);
+    }
+
     pub(crate) fn update(&mut self, update: Vec<ReadResult>) {
         let items: Vec<StoreItem> = update.into_iter().map(|r| r.into()).collect();
         for item in items {
@@ -59,9 +63,11 @@ impl DataHub {
             self.items.push(item);
         }
     }
-    fn rotate(items: Vec<StoreItem>) -> Vec<StoreItem> {
+    fn rotate(&self) -> Vec<StoreItem> {
         let mut result = vec![];
         let mut group: HashMap<String, Vec<StoreItem>> = HashMap::new();
+        let mut items = self.items.clone();
+        items.sort_by(| a, b | b.time_stamp.cmp(&a.time_stamp));
         for item in items {
             group.entry(item.item_name.clone()).or_default().push(item);
         }
@@ -79,8 +85,8 @@ impl DataHub {
         result
     }
 
-    pub(crate) fn get_history(&self, items: usize) -> HashMap<String, Vec<u64>> {
-        let mut r = HashMap::new();
+    pub(crate) fn get_history(&self, items: usize) -> BTreeMap<String, Vec<u64>> {
+        let mut r = BTreeMap::new();
         for (k, vec) in self.history.iter() {
             let d = vec.len() - items;
             let mut t = vec.clone();

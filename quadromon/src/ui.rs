@@ -1,4 +1,4 @@
-use crate::consts::{AVG_FLOW, HIST_SIZE, PUMP_FLOW_REL};
+use crate::consts::{APP_NAME, AVG_FLOW, HIST_SIZE, PUMP_FLOW_REL};
 use crate::data_hub::DataHub;
 use crate::stats::Stats;
 use crate::store::StoreItem;
@@ -98,7 +98,10 @@ impl App {
             {
                 match event::read().expect("event failed") {
                     Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                        KeyCode::Esc => return,
+                        KeyCode::Esc => {
+                            h.lock().unwrap().sync();
+                            return
+                        },
                         _ => {}
                     },
                     _ => {}
@@ -146,7 +149,15 @@ impl App {
         Widget::render(spark_line, *areas, buf);
     }
 
-    fn render_header(&self, area: Rect, buf: &mut Buffer) {}
+    fn render_header(&self, area: Rect, buf: &mut Buffer) {
+        let b = Block::new()
+            .title(Line::raw(APP_NAME).centered())
+            .borders(Borders::ALL);
+        let p = Paragraph::new(APP_NAME)
+            .style(Style::default().fg(Color::LightCyan))
+            .block(b);
+        Widget::render(p, area, buf);
+    }
 
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let b = Block::new()

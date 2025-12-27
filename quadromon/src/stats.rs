@@ -1,10 +1,10 @@
 use crate::consts::{FLOW_SPEED_NAME, PUMP_PWM_NAME};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub(crate) struct Stats {}
 
 impl Stats {
-    pub(crate) fn pump_flow_rel(h: &HashMap<String, Vec<u64>>) -> f32 {
+    pub(crate) fn pump_flow_rel(h: &BTreeMap<String, Vec<u64>>) -> f32 {
         let latest_flow;
         let latest_pump;
 
@@ -22,7 +22,7 @@ impl Stats {
         latest_pump as f32 / latest_flow as f32
     }
 
-    fn get_latest(name: &str, h: &HashMap<String, Vec<u64>>) -> Option<u64> {
+    fn get_latest(name: &str, h: &BTreeMap<String, Vec<u64>>) -> Option<u64> {
         if h.contains_key(name) {
             let flow = h.get(name).unwrap();
             return Some(flow.iter().last().unwrap().clone());
@@ -30,7 +30,7 @@ impl Stats {
         None
     }
 
-    pub(crate) fn avg_flow(h: &HashMap<String, Vec<u64>>) -> f32 {
+    pub(crate) fn avg_flow(h: &BTreeMap<String, Vec<u64>>) -> f32 {
         let mut sum: u64 = 0;
         if h.contains_key(FLOW_SPEED_NAME) {
             for x in h[FLOW_SPEED_NAME].clone() {
